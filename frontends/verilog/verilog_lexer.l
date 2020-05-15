@@ -278,6 +278,7 @@ static bool isUserType(std::string &s)
 "signed"  { return TOK_SIGNED; }
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
+"int"     { SV_KEYWORD(TOK_INT); }
 
 "enum"    { SV_KEYWORD(TOK_ENUM); }
 "typedef" { SV_KEYWORD(TOK_TYPEDEF); }
