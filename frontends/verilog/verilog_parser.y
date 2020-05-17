@@ -1332,6 +1332,17 @@ param_logic:
 		astbuf1->is_logic = true;
 	}
 
+param_reg:
+	TOK_REG {
+		if (astbuf1->children.size() != 1)
+			frontend_verilog_yyerror("FIXME: add here error string");
+		// SV LRM 6.11, Table 6-8: logic -- 2-state, user-defined vector size, unsigned
+		astbuf1->is_signed = false;
+		astbuf1->is_reg = true;
+	}
+
+param_logic_or_reg: param_logic | param_reg
+
 param_range:
 	range {
 		if ($1 != NULL) {
@@ -1356,7 +1367,7 @@ param_logic_range:
 
 param_integer_type: param_integer param_signed
 
-param_integer_vector_type: param_logic param_signed param_logic_range
+param_integer_vector_type: param_logic_or_reg param_signed param_logic_range
 
 param_type:
 	param_integer_type | param_integer_vector_type | param_real | param_range |
