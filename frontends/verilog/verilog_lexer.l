@@ -276,6 +276,7 @@ static bool isUserType(std::string &s)
 "reg"     { return TOK_REG; }
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
+"unsigned" { return TOK_UNSIGNED; }
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 "int"     { SV_KEYWORD(TOK_INT); }
