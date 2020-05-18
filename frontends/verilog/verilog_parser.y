@@ -223,6 +223,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
+%token TOK_STRUCT TOK_PACKED
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -705,7 +706,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
-	enum_decl |
+	enum_decl | struct_decl |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -1516,6 +1517,69 @@ enum_decl: enum_type enum_var_list ';'			{
 	}
 	;
 
+/* Struct grammar based on enum grammar */
+// FIXME: Parse error when parsing empty structure
+struct_type: TOK_STRUCT {
+		static int struct_count;
+		// create parent node for the structure
+		astbuf2 = new AstNode(AST_STRUCT);
+		ast_stack.back()->children.push_back(astbuf2);
+		astbuf2->str = std::string("$struct");
+		astbuf2->str += std::to_string(struct_count++);
+	} TOK_PACKED '{' struct_name_list '}' {
+		// Create new template for struct vars
+		astbuf1 = new AstNode(AST_WIRE);
+		astbuf1->attributes[ID::struct_type] = AstNode::mkconst_str(astbuf2->str);
+	};
+
+struct_name_list:
+	struct_name_decl ';'
+	| struct_name_list struct_name_decl ';'
+	;
+
+/* FIXME: This should be more generic */
+struct_name_decl: {
+		log_assert(astbuf2); // whole AST_STRUCT
+
+		// new AST_STRUCT_ITEM
+		astbuf1 = new AstNode(AST_STRUCT_ITEM);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	} param_type /* FIXME: TOKID, TOKID... */ TOK_ID {
+		log_assert(astbuf1); // current item
+		log_assert(astbuf2); // AST_STRUCT
+
+		// set member name
+		astbuf1->str = *$3;
+		/* FIXME: delete $3; (Use it? Remove it?) */
+
+		// This could be omitted if param_type was more generic
+		delete astbuf1->children[0];
+		astbuf1->children.erase(astbuf1->children.begin());
+
+		// append freshly built struct item
+		astbuf2->children.push_back(astbuf1);
+	};
+
+struct_var_list:
+	struct_var
+	| struct_var_list ',' struct_var
+	;
+
+struct_var: TOK_ID {
+		log_assert(astbuf1);
+		log_assert(astbuf2);
+		auto node = astbuf1->clone();
+		ast_stack.back()->children.push_back(node);
+		node->str = *$1;
+		delete $1;
+	}
+	;
+
+struct_decl: struct_type struct_var_list ';' {
+		delete astbuf1;
+	}
+	;
+
 wire_decl:
 	attr wire_type range {
 		albuf = $1;
@@ -1747,6 +1811,9 @@ typedef_decl:
 		addTypedefNode($4, astbuf1);
 	} |
 	TOK_TYPEDEF enum_type type_name ';' {
+		addTypedefNode($3, astbuf1);
+	} |
+	TOK_TYPEDEF struct_type type_name ';' {
 		addTypedefNode($3, astbuf1);
 	}
 	;

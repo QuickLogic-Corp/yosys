@@ -988,6 +988,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_GENCASE:
 	case AST_PACKAGE:
 	case AST_ENUM:
+	case AST_STRUCT: /* FIXME: This probably shouldn't be here */
 	case AST_MODPORT:
 	case AST_MODPORTMEMBER:
 	case AST_TYPEDEF:
