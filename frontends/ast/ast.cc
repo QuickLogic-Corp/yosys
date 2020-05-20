@@ -1203,6 +1203,8 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 							log_assert(e->type == AST_ENUM_ITEM);
 							e->str = n->str + std::string("::") + e->str.substr(1);
 						}
+					} else if (cloned_node->type == AST_STRUCT) {
+						/* do nothing */
 					} else {
 						cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
 					}

@@ -442,7 +442,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// these nodes appear at the top level in a module and can define names
 			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_GENVAR ||
 					node->type == AST_MEMORY || node->type == AST_FUNCTION || node->type == AST_TASK || node->type == AST_DPI_FUNCTION || node->type == AST_CELL ||
-					node->type == AST_TYPEDEF) {
+					node->type == AST_TYPEDEF || AST_STRUCT) {
 				backup_scope[node->str] = current_scope[node->str];
 				current_scope[node->str] = node;
 			}
@@ -576,6 +576,40 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 			// allocate values (called more than once)
 			allocateDefaultEnumValues();
+		}
+		break;
+
+	case AST_STRUCT:
+		if (!basic_prep) {
+			for (auto item_node : children) {
+				while (!item_node->basic_prep && item_node->simplify(false, false, false, stage, -1, false, in_param))
+					did_something = true;
+			}
+			if (!did_something) {
+				width_hint = 0; // calulate structure width
+				for (auto item_node : children) {
+					log_assert(item_node->range_valid);
+					auto width = item_node->range_left - item_node->range_right + 1;
+					log_assert(width >= 1);
+					width_hint += width;
+				}
+
+				range_right = 0;
+				range_left = range_right + width_hint - 1;
+				log_assert(width_hint >= 1);
+				range_valid = 1;
+
+				/* update AST_STRUCT_ITEMs ranges */
+				auto current_range_left = 0;
+				for (auto item_node : children) {
+					log_assert(item_node->range_valid);
+					auto width = item_node->range_left - item_node->range_right + 1;
+
+					item_node->range_right = current_range_left;
+					item_node->range_left  = current_range_left + width - 1;
+					current_range_left = item_node->range_left + 1;
+				}
+			}
 		}
 		break;
 
@@ -975,6 +1009,32 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					//set attribute for available val to enum item name mappings
 					attributes[enum_item_str] = mkconst_str(enum_item->str);
 				}
+			} else if (templ->attributes.count(ID::struct_type)){
+				bool fixed_range = false;
+				for (auto& node : templ->children) {
+					if (node->type == AST_RANGE) {
+						fixed_range = true;
+						break;
+					}
+				}
+
+				if (!fixed_range) {
+					const std::string &struct_type = templ->attributes[ID::struct_type]->str;
+					log_assert(current_scope.count(struct_type) == 1);
+					AstNode *struct_node = current_scope.at(struct_type);
+					log_assert(struct_node->type == AST_STRUCT);
+
+					while(struct_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+					log_assert(struct_node->basic_prep);
+
+					auto range = new AstNode(AST_RANGE);
+					range->children.push_back(AstNode::mkconst_int(struct_node->range_left, true));
+					range->children.push_back(AstNode::mkconst_int(struct_node->range_right, true));
+					range->is_signed = struct_node->is_signed;
+					templ->children.push_back(range);
+
+					did_something = true;
+				}
 			}
 
 			// Insert clones children from template at beginning
@@ -1157,6 +1217,62 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			children[0] = new AstNode(AST_RANGE, index_expr);
 
 		did_something = true;
+	}
+
+	// replace packed structure field access with vector and range
+	if (type == AST_IDENTIFIER) {
+		const auto dot = str.find(".");
+		if ((dot != str.npos) && (str.substr(0, 4) != "$mem")) {
+			const auto struct_name = str.substr(0, dot);
+			const auto field_name = std::string("\\") + str.substr(dot+1);
+
+			const auto* temp = current_scope.at(struct_name);
+			log_assert(temp);
+			log_assert(temp->attributes.count(ID::wiretype));
+			temp = temp->attributes.at(ID::wiretype);
+			log_assert(temp);
+			temp = current_scope.at(temp->str.c_str());
+			log_assert(temp);
+			log_assert(temp->type == AST_TYPEDEF);
+			log_assert(temp->children.size() == 1);
+			temp = temp->children[0];
+			log_assert(temp->type == AST_WIRE);
+			log_assert(temp->attributes.count(ID::struct_type));
+			temp = temp->attributes.at(ID::struct_type);
+			temp = current_scope.at(temp->str);
+			log_assert(temp);
+
+			auto offset_right = 0, offset_left = 0;
+			for (const auto& field : temp->children) {
+				log_assert(field->type == AST_WIRE && field->range_valid);
+				auto width = field->range_left - field->range_right + 1;
+				log_assert(width >= 1);
+				if (field->str == field_name) {
+					offset_left += width - 1;
+					break;
+				}
+				offset_left  += width;
+				offset_right += width;
+			}
+
+			if (children.size() > 0 && children[0]->type == AST_RANGE) {
+				const auto width = children[0]->range_left - children[0]->range_right + 1;
+				offset_right += children[0]->range_right;
+				offset_left   = offset_right + width - 1;
+
+				// drop range
+				delete children[0];
+				children.erase(children.begin());
+			}
+
+			// run the show
+			str = struct_name;
+			auto* range = new AstNode(AST_RANGE);
+			range->children.push_back(AstNode::mkconst_int(offset_left, true));
+			range->children.push_back(AstNode::mkconst_int(offset_right, true));
+			range->is_signed = false;
+			children.push_back(range);
+		}
 	}
 
 	// trim/extend parameters

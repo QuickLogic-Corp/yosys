@@ -1530,6 +1530,8 @@ struct_type: TOK_STRUCT {
 		// Create new template for struct vars
 		astbuf1 = new AstNode(AST_WIRE);
 		astbuf1->attributes[ID::struct_type] = AstNode::mkconst_str(astbuf2->str);
+		astbuf1->is_reg = true;
+		astbuf1->is_signed = false;
 	};
 
 struct_name_list:
@@ -1542,7 +1544,7 @@ struct_name_decl: {
 		log_assert(astbuf2); // whole AST_STRUCT
 
 		// new AST_STRUCT_ITEM
-		astbuf1 = new AstNode(AST_STRUCT_ITEM);
+		astbuf1 = new AstNode(AST_WIRE);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
 	} param_type /* FIXME: TOKID, TOKID... */ TOK_ID {
 		log_assert(astbuf1); // current item
