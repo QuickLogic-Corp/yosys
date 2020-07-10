@@ -93,7 +93,11 @@ struct SynthQuickLogicPass : public ScriptPass
     void script() override
     {
         if (check_label("begin")) {
+            std::string readVelArgs = "+/quicklogic/" + family + "_cells_sim.v";
+            run("read_verilog -lib -specify " + readVelArgs);
+
             run("read_verilog -lib +/quicklogic/cells_sim.v");
+
             run(stringf("hierarchy -check %s", top_opt.c_str()));
         }
 
@@ -120,7 +124,9 @@ struct SynthQuickLogicPass : public ScriptPass
         }
 
         if (check_label("map")) {
-            run("techmap -map +/quicklogic/cells_map.v");
+            std::string techMapArgs = " -map +/quicklogic/cells_map.v";
+            techMapArgs += " -map +/quicklogic/" + family + "_cells_map.v";
+            run("techmap" + techMapArgs);
             run("opt_clean");
             run("check");
             run("autoname");

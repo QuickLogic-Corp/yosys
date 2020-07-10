@@ -1,3 +1,4 @@
+
 module \$lut (A, Y);
     parameter WIDTH = 0;
     parameter LUT = 0;
@@ -23,19 +24,7 @@ module \$lut (A, Y);
     endfunction
 
     generate
-        if (WIDTH == 1)
-        begin
-            LUT1 #(.INIT(INIT_address_inverse(LUT))) _TECHMAP_REPLACE_ (.O(Y), .I0(A[0]));
-        end
-        else if (WIDTH == 2)
-        begin
-            LUT2 #(.INIT(INIT_address_inverse(LUT))) _TECHMAP_REPLACE_ (.O(Y), .I0(A[1]), .I1(A[0]));
-        end
-        else if (WIDTH == 3)
-        begin
-            LUT3 #(.INIT(INIT_address_inverse(LUT))) _TECHMAP_REPLACE_ (.O(Y), .I0(A[2]), .I1(A[1]), .I2(A[0]));
-        end
-        else if (WIDTH == 4)
+        if (WIDTH == 4)
         begin
             LUT4 #(.INIT(INIT_address_inverse(LUT))) _TECHMAP_REPLACE_ (.O(Y), .I0(A[3]), .I1(A[2]), .I2(A[1]), .I3(A[0]));
         end
@@ -44,5 +33,15 @@ module \$lut (A, Y);
             wire _TECHMAP_FAIL_ = 1;
         end
     endgenerate
+endmodule
+
+module \$_DFF_ (D, CQZ, QCK, QEN, QRT, QST);
+    input D;
+    input QCK;
+    input QEN;
+    input QRT;
+    input QST;
+    output CQZ;
+    ff _TECHMAP_REPLACE_ (.CQZ(CQZ), .D(D), .QCK(QCK), .QEN(QEN), .QRT(QRT), .QST(QST));
 endmodule
 
