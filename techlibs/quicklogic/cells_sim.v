@@ -60,3 +60,9 @@ module logic_1(output a);
     assign a = 1;
 endmodule
 
+(* blackbox *)
+module gclkbuff (input A, output Z);
+
+assign Z = A;
+
+endmodule
