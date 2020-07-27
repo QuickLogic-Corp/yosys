@@ -3,6 +3,7 @@ OBJS += techlibs/quicklogic/synth_quicklogic.o
 
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/cells_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_cells_map.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_arith_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_cells_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/cells_sim.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_cells_sim.v))
