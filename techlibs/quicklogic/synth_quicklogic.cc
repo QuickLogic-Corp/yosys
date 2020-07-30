@@ -10,7 +10,7 @@ struct SynthQuickLogicPass : public ScriptPass
 {
     SynthQuickLogicPass() : ScriptPass("synth_quicklogic", "Synthesis for QuickLogic FPGAs") { }
 
-    void help() override
+    void help() YS_OVERRIDE
     {
         log("\n");
         log("   synth_quicklogic [options]\n");
@@ -43,7 +43,7 @@ struct SynthQuickLogicPass : public ScriptPass
     std::string currmodule = "";
     std::string family = "";
 
-    void clear_flags() override
+    void clear_flags() YS_OVERRIDE
     {
         top_opt = "-auto-top";
         family = "pp3";
@@ -51,7 +51,7 @@ struct SynthQuickLogicPass : public ScriptPass
         blif_file.clear();
     }
 
-    void execute(std::vector<std::string> args, RTLIL::Design *design) override
+    void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
         std::string run_from, run_to;
         clear_flags();
@@ -90,7 +90,7 @@ struct SynthQuickLogicPass : public ScriptPass
         log_pop();
     }
 
-    void script() override
+    void script() YS_OVERRIDE
     {
         if (check_label("begin")) {
             run("read_verilog -lib +/quicklogic/cells_sim.v");
