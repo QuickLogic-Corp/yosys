@@ -32,36 +32,36 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
     (* force_downto *)
     wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
     (* force_downto *)
-    wire [Y_WIDTH-1:0] C = {CO, CI};
+    wire [Y_WIDTH-1:0] C;
 
-    wire ci;
-    wire co;
+//     genvar i;
+//    generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
+//        \$__AP3_CARRY_WRAPPER #(
+//            .LUT(16'b 1110_1000_1001_0110),
+//            .I2_IS_CI(1'b1)
+//        ) carry (
+//			.A(AA[i]),
+//			.B(BB[i]),
+//			.CI(C[i]),
+//			.I2(1'bx),
+//			.I3(1'b0),
+//			.CO(CO[i]),
+//			.O(Y[i])
+//		);
+//
+//    end: slice
+//    endgenerate
 
-     genvar i;
+    assign CO = C[Y_WIDTH-1];
+
+    genvar i;
     generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
-        \$__AP3_CARRY_WRAPPER #(
-            .LUT(16'b 1110_1000_1001_0110),
-            .I2_IS_CI(1'b1)
-        ) carry (
-			.A(AA[i]),
-			.B(BB[i]),
-			.CI(C[i]),
-			.I2(1'bx),
-			.I3(1'b0),
-			.CO(CO[i]),
-			.O(Y[i])
-		);
 
-    end: slice	  
-    endgenerate
+        wire ci;
+        wire co;
 
-    /*genvar i;
-    generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
         // First in chain
         generate if (i == 0) begin
-            // Carry-chain init stub
-            wire c0;
-            CI_STUB stub (.C0(c0));
 
             // CI connected to a constant
             if (_TECHMAP_CONSTMSK_CI_ == 1) begin
@@ -72,15 +72,15 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 
                 // LUT4 configured as 1-bit adder with CI=const
                 \$__AP3_CARRY_WRAPPER #(
-                    .INIT(INIT),
-                    .I2_IS_CI(1'b1)
+                    .LUT(INIT),
+                    .I2_IS_CI(1'b0)
                 ) lut_ci_adder (
                     .A(AA[i]),
                     .B(BB[i]),
                     .I2(),
                     .I3(1'b0),
                     .O(Y[i]),
-                    .CI(c0),
+                    .CI(),
                     .CO(ci)
                 );
 
@@ -89,22 +89,22 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 
                 // LUT4 configured as passthrough to drive CI of the next stage
                 \$__AP3_CARRY_WRAPPER #(
-                    .INIT(16'b11000000_00001100),
-                    .I2_IS_CI(1'b1)
+                    .LUT(16'b11000000_00001100),
+                    .I2_IS_CI(1'b0)
                 ) lut_ci (
                     .A(),
-                    .B(CI[i]),
+                    .B(CI),
                     .I2(),
                     .I3(),
                     .O(),
-                    .CI(c0),
+                    .CI(),
                     .CO(ci)
                 );
             end
 
         // Not first in chain
         end else begin
-            assign ci = C[i];
+            assign ci = C[i-1];
 
         end endgenerate
 
@@ -112,14 +112,13 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 
         // Single 1-bit adder, mid-chain adder or non-const CI
         // adder
-        generate if ((Y_WIDTH == 1) ||
-                     (i == 0 && _TECHMAP_CONSTMSK_CI_ == 0) ||
-                     (i > 0 && i < Y_WIDTH-1)) begin
+        generate if ((i == 0 && _TECHMAP_CONSTMSK_CI_ == 0) ||
+                     (i  > 0 && i < Y_WIDTH-1)) begin
             
             // LUT4 configured as full 1-bit adder
             \$__AP3_CARRY_WRAPPER #(
-                    .INIT(16'b10000110_10010110),
-                    .I2_IS_CI(1'b0)
+                    .LUT(16'b10000110_10010110),
+                    .I2_IS_CI(1'b1)
                 ) lut_adder (
                     .A(AA[i]),
                     .B(BB[i]),
@@ -142,27 +141,25 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
             // LUT4 configured for passing its CI input to output. This should
             // get pruned if the actual CO port is not connected anywhere.
             \$__AP3_CARRY_WRAPPER #(
-                    .INIT(16'b11110000_11110000),
-                    .I2_IS_CI(1'b0)
+                    .LUT(16'b11110000_11110000),
+                    .I2_IS_CI(1'b1)
                 ) lut_co (
                     .A(),
                     .B(),
                     .I2(),
                     .I3(),
-                    .O(CO[i]),
+                    .O(C[i]),
                     .CI(co),
                     .CO()
                 );
         // Not last in chain
         end else begin
-            assign CO[i] = co;
+            assign C[i] = co;
 
         end endgenerate
 
     end: slice	  
     endgenerate
-    */
-    
 
     /* End implementation */
     assign X = AA ^ BB;
