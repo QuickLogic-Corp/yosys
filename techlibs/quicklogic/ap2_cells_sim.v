@@ -62,6 +62,15 @@ module full_adder(
    assign {CO, S} = A + B + CI;
 endmodule
 
+module carry_follower(
+	output CO,
+	input A,
+	input B,
+	input CI
+);
+	assign CO = ((A ^ B) & CI) | (~(A ^ B) & (A & B)); 
+endmodule
+
 (* lib_whitebox *)
 module QL_CARRY(
 	output CO,

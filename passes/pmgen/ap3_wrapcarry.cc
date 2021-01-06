@@ -35,13 +35,13 @@ void create_ap3_wrapcarry(ap3_wrapcarry_pm &pm)
     log("lut:   %s\n", log_id(st.lut, "--"));
 #endif
 
-    log("  replacing LUT4 + QL_CARRY with $__AP3_CARRY_WRAPPER cell.\n");
+    log("  replacing LUT4 + carry_follower with $__AP3_CARRY_WRAPPER cell.\n");
 
     Cell *cell = pm.module->addCell(NEW_ID, ID($__AP3_CARRY_WRAPPER));
     pm.module->swap_names(cell, st.carry);
 
-    cell->setPort(ID::A, st.carry->getPort(ID(I0)));
-    cell->setPort(ID::B, st.carry->getPort(ID(I1)));
+    cell->setPort(ID::A, st.carry->getPort(ID(A)));
+    cell->setPort(ID::B, st.carry->getPort(ID(B)));
     auto CI = st.carry->getPort(ID::CI);
     cell->setPort(ID::CI, CI);
     cell->setPort(ID::CO, st.carry->getPort(ID::CO));
@@ -64,7 +64,7 @@ void create_ap3_wrapcarry(ap3_wrapcarry_pm &pm)
     cell->setParam(ID::LUT, st.lut->getParam(ID(INIT)));
 
     for (const auto &a : st.carry->attributes)
-        cell->attributes[stringf("\\QL_CARRY.%s", a.first.c_str())] = a.second;
+        cell->attributes[stringf("\\carry_follower.%s", a.first.c_str())] = a.second;
     for (const auto &a : st.lut->attributes)
         cell->attributes[stringf("\\LUT4.%s", a.first.c_str())] = a.second;
     cell->attributes[ID(LUT4.name)] = Const(st.lut->name.str());
@@ -83,16 +83,16 @@ struct AP3WrapCarryPass : public Pass {
         log("\n");
         log("    ap3_wrapcarry [selection]\n");
         log("\n");
-        log("Wrap manually instantiated QL_CARRY cells, along with their associated LUT4s,\n");
+        log("Wrap manually instantiated carry_follower cells, along with their associated LUT4s,\n");
         log("into an internal $__AP3_CARRY_WRAPPER cell for preservation across technology\n");
         log("mapping.\n");
         log("\n");
-        log("Attributes on both cells will have their names prefixed with 'QL_CARRY.' or\n");
+        log("Attributes on both cells will have their names prefixed with 'carry_follower.' or\n");
         log("'LUT4.' and attached to the wrapping cell.\n");
         log("A (* keep *) attribute on either cell will be logically OR-ed together.\n");
         log("\n");
         log("    -unwrap\n");
-        log("        unwrap $__AP3_CARRY_WRAPPER cells back into QL_CARRYs and LUT4s,\n");
+        log("        unwrap $__AP3_CARRY_WRAPPER cells back into carry_followers and LUT4s,\n");
         log("        including restoring their attributes.\n");
         log("\n");
     }
@@ -121,9 +121,9 @@ struct AP3WrapCarryPass : public Pass {
                     if (cell->type != ID($__AP3_CARRY_WRAPPER))
                         continue;
 
-                    auto carry = module->addCell(NEW_ID, ID(QL_CARRY));
-                    carry->setPort(ID(I0), cell->getPort(ID::A));
-                    carry->setPort(ID(I1), cell->getPort(ID::B));
+                    auto carry = module->addCell(NEW_ID, ID(carry_follower));
+                    carry->setPort(ID(A), cell->getPort(ID::A));
+                    carry->setPort(ID(B), cell->getPort(ID::B));
                     auto CI = cell->getPort(ID::CI);
                     carry->setPort(ID::CI, (CI.empty()) ? RTLIL::Const(RTLIL::State::Sx) : CI);
                     carry->setPort(ID::CO, cell->getPort(ID::CO));
@@ -170,8 +170,8 @@ struct AP3WrapCarryPass : public Pass {
 
                     Const src;
                     for (const auto &a : cell->attributes)
-                        if (a.first.begins_with("\\QL_CARRY.\\"))
-                            carry->attributes[a.first.c_str() + strlen("\\QL_CARRY.")] = a.second;
+                        if (a.first.begins_with("\\carry_follower.\\"))
+                            carry->attributes[a.first.c_str() + strlen("\\carry_follower.")] = a.second;
                         else if (a.first.begins_with("\\LUT4.\\"))
                             lut->attributes[a.first.c_str() + strlen("\\LUT4.")] = a.second;
                         else if (a.first == ID::src)

@@ -1,13 +1,13 @@
 pattern ap3_wrapcarry
 
 match carry
-	select carry->type.in(\QL_CARRY)
+	select carry->type.in(\carry_follower)
 endmatch
 
 match lut
 	select lut->type.in(\LUT4)
-	index <SigSpec> port(lut, \I0) === port(carry, \I0)
-	index <SigSpec> port(lut, \I1) === port(carry, \I1)
+	index <SigSpec> port(lut, \I0) === port(carry, \A)
+	index <SigSpec> port(lut, \I1) === port(carry, \B)
 endmatch
 
 code

@@ -11,11 +11,11 @@ module \$__AP3_CARRY_WRAPPER (
 	parameter LUT = 0;
 	parameter I2_IS_CI = 0;
 	wire I2_OR_CI = I2_IS_CI ? CI : I2;
-	QL_CARRY carry (
-		.I0(A),
-		.I1(B),
-		.CI(CI),
-		.CO(CO)
+	carry_follower carry (
+		.a(A),
+		.b(B),
+		.cin(CI),
+		.cout(CO)
 	);
 	LUT4 #(
 		.INIT(LUT)
