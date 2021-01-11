@@ -23,11 +23,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/ap3_wrapcarry_pm.h"
+#include "passes/pmgen/ql_wrapcarry_pm.h"
 
-void create_ap3_wrapcarry(ap3_wrapcarry_pm &pm)
+void create_ql_wrapcarry(ql_wrapcarry_pm &pm)
 {
-    auto &st = pm.st_ap3_wrapcarry;
+    auto &st = pm.st_ql_wrapcarry;
 
 #if 0
     log("\n");
@@ -35,9 +35,9 @@ void create_ap3_wrapcarry(ap3_wrapcarry_pm &pm)
     log("lut:   %s\n", log_id(st.lut, "--"));
 #endif
 
-    log("  replacing LUT4 + carry_follower with $__AP3_CARRY_WRAPPER cell.\n");
+    log("  replacing LUT4 + carry_follower with soft_adder cell.\n");
 
-    Cell *cell = pm.module->addCell(NEW_ID, ID($__AP3_CARRY_WRAPPER));
+    Cell *cell = pm.module->addCell(NEW_ID, ID(soft_adder));
     pm.module->swap_names(cell, st.carry);
 
     cell->setPort(ID::A, st.carry->getPort(ID(A)));
@@ -75,16 +75,16 @@ void create_ap3_wrapcarry(ap3_wrapcarry_pm &pm)
     pm.autoremove(st.lut);
 }
 
-struct AP3WrapCarryPass : public Pass {
-    AP3WrapCarryPass() : Pass("ap3_wrapcarry", "AP3: wrap carries") { }
+struct QLWrapCarryPass : public Pass {
+    QLWrapCarryPass() : Pass("ql_wrapcarry", "QL: wrap carries") { }
     void help() YS_OVERRIDE
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-        log("    ap3_wrapcarry [selection]\n");
+        log("    ql_wrapcarry [selection]\n");
         log("\n");
         log("Wrap manually instantiated carry_follower cells, along with their associated LUT4s,\n");
-        log("into an internal $__AP3_CARRY_WRAPPER cell for preservation across technology\n");
+        log("into an internal soft_adder cell for preservation across technology\n");
         log("mapping.\n");
         log("\n");
         log("Attributes on both cells will have their names prefixed with 'carry_follower.' or\n");
@@ -92,7 +92,7 @@ struct AP3WrapCarryPass : public Pass {
         log("A (* keep *) attribute on either cell will be logically OR-ed together.\n");
         log("\n");
         log("    -unwrap\n");
-        log("        unwrap $__AP3_CARRY_WRAPPER cells back into carry_followers and LUT4s,\n");
+        log("        unwrap soft_adder cells back into carry_followers and LUT4s,\n");
         log("        including restoring their attributes.\n");
         log("\n");
     }
@@ -100,7 +100,7 @@ struct AP3WrapCarryPass : public Pass {
     {
         bool unwrap = false;
 
-        log_header(design, "Executing ap3_wrapcarry pass (wrap carries).\n");
+        log_header(design, "Executing ql_wrapcarry pass (wrap carries).\n");
 
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++)
@@ -115,10 +115,10 @@ struct AP3WrapCarryPass : public Pass {
 
         for (auto module : design->selected_modules()) {
             if (!unwrap) {
-                ap3_wrapcarry_pm(module, module->selected_cells()).run_ap3_wrapcarry(create_ap3_wrapcarry);
+                ql_wrapcarry_pm(module, module->selected_cells()).run_ql_wrapcarry(create_ql_wrapcarry);
             } else {
                 for (auto cell : module->selected_cells()) {
-                    if (cell->type != ID($__AP3_CARRY_WRAPPER))
+                    if (cell->type != ID(soft_adder))
                         continue;
 
                     auto carry = module->addCell(NEW_ID, ID(carry_follower));
@@ -191,6 +191,6 @@ struct AP3WrapCarryPass : public Pass {
             }
         }
     }
-} AP3WrapCarryPass;
+} QLWrapCarryPass;
 
 PRIVATE_NAMESPACE_END

@@ -1,4 +1,4 @@
-pattern ap3_wrapcarry
+pattern ql_wrapcarry
 
 match carry
 	select carry->type.in(\carry_follower)

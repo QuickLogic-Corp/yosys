@@ -158,7 +158,7 @@ struct SynthQuickLogicPass : public ScriptPass {
                 readVelArgs = " +/quicklogic/" + family + "_cells_sim.v";
             }
             run("read_verilog -lib -specify +/quicklogic/cells_sim.v" + readVelArgs);
-	        run("read_verilog -lib -specify +/quicklogic/abc9_model.v");
+            run("read_verilog -lib -specify +/quicklogic/abc9_model.v");
             run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
         }
 
@@ -208,8 +208,13 @@ struct SynthQuickLogicPass : public ScriptPass {
 
         if (check_label("map_gates")) {
             if (inferAdder && family != "pp3" && family != "ap") {
-                run("ap3_wrapcarry");
-                run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
+                if(openfpga) {
+                    //run("ql_wrapcarry");
+                    run("techmap -map +/techmap.v -map +/quicklogic/openfpga_arith_map.v");
+
+                } else {
+                    run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
+                }
             } else {
                 run("techmap");
             }
@@ -260,34 +265,32 @@ struct SynthQuickLogicPass : public ScriptPass {
             std::string techMapArgs = " -map +/quicklogic/" + family + "_latches_map.v";
             if(!openfpga) {
                 run("techmap " + techMapArgs);
-            }
 
-            if (abcOpt && !openfpga) {
-                std::string lutDefs = "+/quicklogic/" + family + "_lutdefs.txt";
-                rewrite_filename(lutDefs);
+                if (abcOpt && !openfpga) {
+                    std::string lutDefs = "+/quicklogic/" + family + "_lutdefs.txt";
+                    rewrite_filename(lutDefs);
 
-                std::string abcArgs = "+read_lut," + lutDefs + ";"
-                    "strash;ifraig;scorr;dc2;dretime;strash;dch,-f;if;mfs2;" // Common Yosys ABC script
-                    "sweep;eliminate;if;mfs;lutpack;" // Optimization script
-                    "dress"; // "dress" to preserve names
+                    std::string abcArgs = "+read_lut," + lutDefs + ";"
+                        "strash;ifraig;scorr;dc2;dretime;strash;dch,-f;if;mfs2;" // Common Yosys ABC script
+                        "sweep;eliminate;if;mfs;lutpack;" // Optimization script
+                        "dress"; // "dress" to preserve names
 
-                run("abc -script " + abcArgs);
-            } else {
-                if (family == "pp3" || family == "ap") {
-                    run("abc -luts 1,2,2,4:8");
-                } else if (family == "ap2") {
-                    run("abc -dress -lut 4:5 -dff"); //-luts 5,4,4,1,3
+                    run("abc -script " + abcArgs);
                 } else {
-                    if(openfpga) {
-                        run("abc -lut 4 ");
+                    if (family == "pp3" || family == "ap") {
+                        run("abc -luts 1,2,2,4:8");
+                    } else if (family == "ap2") {
+                        run("abc -dress -lut 4:5 -dff"); //-luts 5,4,4,1,3
                     } else {
                         run("abc -dress -lut 4 -dff");
                     }
                 }
+            } else {
+                run("abc -lut 4 ");
             }
 
-            if(family != "pp3" && family != "ap") {
-                run("ap3_wrapcarry -unwrap");
+            if(openfpga && family != "pp3" && family != "ap") {
+                //run("ql_wrapcarry -unwrap");
             }
 
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
@@ -312,7 +315,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
             run("techmap" + techMapArgs);
             run("clean");
-            if (check_label("edif")) {
+            if (!edif_file.empty()) {
                 run("quicklogic_eqn");
             }
         }

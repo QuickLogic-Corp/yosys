@@ -49,6 +49,6 @@ $(eval $(call add_extra_objs,passes/pmgen/xilinx_srl_pm.h))
 
 # --------------------------------------
 
-OBJS += passes/pmgen/ap3_wrapcarry.o
-passes/pmgen/ap3_wrapcarry.o: passes/pmgen/ap3_wrapcarry_pm.h
-$(eval $(call add_extra_objs,passes/pmgen/ap3_wrapcarry_pm.h))
+OBJS += passes/pmgen/ql_wrapcarry.o
+passes/pmgen/ql_wrapcarry.o: passes/pmgen/ql_wrapcarry_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/ql_wrapcarry_pm.h))

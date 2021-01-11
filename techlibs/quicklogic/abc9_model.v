@@ -1,5 +1,5 @@
 (* abc9_box, lib_whitebox *)
-module \$__AP3_CARRY_WRAPPER (
+module soft_adder (
 	(* abc9_carry *)
 	output CO,
 	output O,
@@ -12,10 +12,10 @@ module \$__AP3_CARRY_WRAPPER (
 	parameter I2_IS_CI = 0;
 	wire I2_OR_CI = I2_IS_CI ? CI : I2;
 	carry_follower carry (
-		.a(A),
-		.b(B),
-		.cin(CI),
-		.cout(CO)
+		.A(A),
+		.B(B),
+		.CI(CI),
+		.CO(CO)
 	);
 	LUT4 #(
 		.INIT(LUT)
