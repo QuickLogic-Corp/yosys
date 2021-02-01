@@ -38,6 +38,7 @@ endmodule
 module openfpga_ff(
     output reg CQZ,
     input D,
+    (* clkbuf_sink *)
     input QCK
 );
     parameter [0:0] INIT = 1'b0;

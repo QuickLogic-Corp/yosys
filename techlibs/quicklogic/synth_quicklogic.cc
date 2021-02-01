@@ -254,11 +254,15 @@ struct SynthQuickLogicPass : public ScriptPass {
 
             std::string techMapArgs = " -map +/quicklogic/" + family;
 
-            techMapArgs += "_ffs_map.v";
-
             if(!openfpga) {
+            	techMapArgs += "_ffs_map.v";
+	    } else {
+            	techMapArgs += "_openfpga_ffs_map.v";
+	    }
+
+            //if(!openfpga) {
                 run("techmap " + techMapArgs);
-            }
+            //}
             run("opt_expr -mux_undef");
             run("simplemap");
             if(family == "ap3" || family == "ap2") {
@@ -302,10 +306,16 @@ struct SynthQuickLogicPass : public ScriptPass {
             //run("ap3_wrapcarry -unwrap");
             //}
 
-            techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
             if(!openfpga) {
+            	techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
+	    } else {
+            	techMapArgs = " -map +/quicklogic/" + family + "_openfpga_ffs_map.v";
+	    }
+
+
+            //if(!openfpga) {
                 run("techmap " + techMapArgs);
-            }
+            //}
 
             run("clean");
             if(family != "pp3" && family != "ap") {
@@ -341,8 +351,9 @@ struct SynthQuickLogicPass : public ScriptPass {
                 run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
                 run("iopadmap -bits -outpad outpad A:P -inpad inpad Q:P -tinoutpad bipad EN:Q:A:P A:top");
             } else {
+                    run("clkbufmap -buf ck_buff_int out:in -inpad ck_buff out:in");
                 if (!openfpga) {
-                    run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
+                    //run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
                     string ioTechmapFile;
                     if(infer_dbuff) {
                         run("iopadmap -bits -outpad $__out_buff A:Q -inpad $__in_buff Q:A");

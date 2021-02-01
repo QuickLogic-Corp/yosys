@@ -21,3 +21,31 @@ module LUT4(
     
     assign O = INIT[{I3, I2, I1, I0}];
 endmodule
+
+(* abc9_flop, lib_whitebox *)
+module openfpga_ff(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input C
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge C)
+        Q <= D;
+endmodule
+
+module ck_buff(
+    (* clkbuf_driver *)
+    output out,
+    input in);
+  assign out = in;
+endmodule
+
+module ck_buff_int(
+    (* clkbuf_driver *)
+    output out,
+    input in);
+  assign out = in;
+endmodule
