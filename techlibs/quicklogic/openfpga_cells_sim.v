@@ -43,7 +43,7 @@ module ck_buff(
   assign out = in;
 endmodule
 
-module ck_buff_int(
+module ck_pad(
     (* clkbuf_driver *)
     output out,
     input in);

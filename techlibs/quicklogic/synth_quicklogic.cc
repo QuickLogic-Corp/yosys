@@ -351,9 +351,8 @@ struct SynthQuickLogicPass : public ScriptPass {
                 run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
                 run("iopadmap -bits -outpad outpad A:P -inpad inpad Q:P -tinoutpad bipad EN:Q:A:P A:top");
             } else {
-                    run("clkbufmap -buf ck_buff_int out:in -inpad ck_buff out:in");
                 if (!openfpga) {
-                    //run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
+                    run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
                     string ioTechmapFile;
                     if(infer_dbuff) {
                         run("iopadmap -bits -outpad $__out_buff A:Q -inpad $__in_buff Q:A");
@@ -363,7 +362,10 @@ struct SynthQuickLogicPass : public ScriptPass {
                     } else {
                         run("iopadmap -bits -outpad out_buff A:Q -inpad in_buff Q:A");
                     }
-                }
+                } else {
+                    run("clkbufmap -buf ck_buff out:in -inpad ck_pad out:in");
+		}
+			
             } 
         }
 
