@@ -255,11 +255,15 @@ struct SynthQuickLogicPass : public ScriptPass {
 
             std::string techMapArgs = " -map +/quicklogic/" + family;
 
-            techMapArgs += "_ffs_map.v";
-
             if(!openfpga) {
-                run("techmap " + techMapArgs);
+                techMapArgs += "_ffs_map.v";
+            } else {
+                techMapArgs += "_openfpga_ffs_map.v";
             }
+
+            //if(!openfpga) {
+                run("techmap " + techMapArgs);
+            //}
             run("opt_expr -mux_undef");
             run("simplemap");
             if(family == "ap3" || family == "ap2") {
@@ -298,11 +302,16 @@ struct SynthQuickLogicPass : public ScriptPass {
             } else {
                 run("abc -lut 4 ");
             }
-
-            techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
-            if(!openfpga) {
-                run("techmap " + techMapArgs);
+            
+	    if(!openfpga) {
+                techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
+            } else {
+                techMapArgs = " -map +/quicklogic/" + family + "_openfpga_ffs_map.v";
             }
+
+
+            //if(!openfpga) {
+                run("techmap " + techMapArgs);
 
             run("clean");
             if(family != "pp3" && family != "ap") {
