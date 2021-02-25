@@ -295,7 +295,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 
         if (check_label("map_cells")) {
 
-            std::string techMapArgs = " -map +/quicklogic/" + family + "_cells_map.v";
+            std::string techMapArgs;
+            if(family != "qlf_k4n8") {
+                techMapArgs = " -map +/quicklogic/" + family + "_cells_map.v";
+            }
             if(family == "qlf_k4n8" && family != "pp3" && family != "ap") {
                 if(family == "qlf_k4n8") {
                     techMapArgs += " -D NO_LUT -map +/quicklogic/ap3_lut_map.v";
