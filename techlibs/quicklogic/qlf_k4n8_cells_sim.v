@@ -70,7 +70,21 @@ module scff(
 endmodule
 
 (* abc9_flop, lib_whitebox *)
-module openfpga_ff(
+module dff(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input C
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge C)
+        Q <= D;
+endmodule
+
+(* abc9_flop, lib_whitebox *)
+module sh_dff(
     output reg Q,
     input D,
     (* clkbuf_sink *)
