@@ -47,6 +47,9 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("        - ap3: ArcticPro 3 \n");
         log("        - qlf_k4n8: qlf_k4n8 \n");
         log("\n");
+        log("    -no_ff_map\n");
+        log("        Specifying this switch turns off ff techmap.\n");
+        log("\n");
         log("    -no_abc_opt\n");
         log("        By default most of ABC logic optimization features is\n");
         log("        enabled. Specifying this switch turns them off.\n");
@@ -78,6 +81,7 @@ struct SynthQuickLogicPass : public ScriptPass {
     string top_opt, edif_file, blif_file, family, currmodule, verilog_file;
     bool inferAdder, infer_dbuff;
     bool abcOpt;
+    bool noffmap;
 
     void clear_flags() YS_OVERRIDE
     {
@@ -89,6 +93,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         family = "pp3";
         inferAdder = false;
         abcOpt = true;
+        noffmap=false;
         infer_dbuff = false;
     }
 
@@ -133,7 +138,10 @@ struct SynthQuickLogicPass : public ScriptPass {
                 abcOpt = false;
                 continue;
             }
-            
+            if (args[argidx] == "-no_ff_map") {
+                noffmap = true;
+                continue;
+            }
             break;
         }
         extra_args(args, argidx, design);
@@ -240,7 +248,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 
             techMapArgs += "_ffs_map.v";
 
-            if(family != "qlf_k4n8") {
+            if(!noffmap) {
+		run("shregmap -minlen 8 -maxlen 8");
                 run("techmap " + techMapArgs);
             }
             run("opt_expr -mux_undef");
@@ -281,11 +290,14 @@ struct SynthQuickLogicPass : public ScriptPass {
             } else {
                 run("abc -lut 4 ");
             }
+            
 
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
-            if(family != "qlf_k4n8") {
+
+            if(!noffmap) {
+		run("shregmap -minlen 8 -maxlen 8");
                 run("techmap " + techMapArgs);
-            }
+	    }
 
             run("clean");
             if(family != "pp3" && family != "ap") {
