@@ -63,8 +63,9 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("        write the design to the specified verilog file. writing of an output file\n");
         log("        is omitted if this parameter is not specified.\n");
         log("\n");
-        log("    -adder\n");
-        log("        use adder cells in output netlist\n");
+        log("    -no_adder\n");
+        log("        By default use adder cells in output netlist.\n");
+        log("        Specifying this switch turns it off.\n");
         log("\n");
         log("    -infer_dbuff\n");
         log("        Infer d_buff for const driver IO signals (applicable for AP, AP2 & AP3 device)\n");
@@ -87,7 +88,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         verilog_file = "";
         currmodule = "";
         family = "pp3";
-        inferAdder = false;
+        inferAdder = true;
         abcOpt = true;
         infer_dbuff = false;
     }
@@ -121,8 +122,8 @@ struct SynthQuickLogicPass : public ScriptPass {
                 verilog_file = args[++argidx];
                 continue;
             }
-            if (args[argidx] == "-adder") {
-                inferAdder = true;
+            if (args[argidx] == "-no_adder") {
+                inferAdder = false;
                 continue;
             }
             if (args[argidx] == "-infer_dbuff") {
