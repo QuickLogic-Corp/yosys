@@ -173,9 +173,7 @@ struct OptMergeWorker
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID::Q && (cell1->type.begins_with("$dff") || cell1->type.begins_with("$dlatch") ||
-						cell1->type.begins_with("$_DFF") || cell1->type.begins_with("$_DLATCH") || cell1->type.begins_with("$_SR_") ||
-						cell1->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
+				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell1->type)) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					auto &sig1 = conn1[it.first];
@@ -298,9 +296,7 @@ struct OptMergeWorker
 								module->connect(RTLIL::SigSig(it.second, other_sig));
 								assign_map.add(it.second, other_sig);
 
-								if (it.first == ID::Q && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
-											cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH") || cell->type.begins_with("$_SR_") ||
-											cell->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
+								if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type)) {
 									for (auto c : it.second.chunks()) {
 										auto jt = c.wire->attributes.find(ID::init);
 										if (jt == c.wire->attributes.end())
@@ -326,7 +322,7 @@ struct OptMergeWorker
 
 struct OptMergePass : public Pass {
 	OptMergePass() : Pass("opt_merge", "consolidate identical cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -342,7 +338,7 @@ struct OptMergePass : public Pass {
 		log("        Operate on all cell types, not just built-in types.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_MERGE pass (detect identical cells).\n");
 

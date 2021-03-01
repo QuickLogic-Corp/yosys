@@ -32,7 +32,7 @@ pool<SigBit> rminitbits;
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,7 +41,7 @@ struct PeepoptPass : public Pass {
 		log("This pass applies a collection of peephole optimizers to the current design.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string genmode;
 
@@ -67,8 +67,6 @@ struct PeepoptPass : public Pass {
 				GENERATE_PATTERN(peepopt_pm, shiftmul);
 			else if (genmode == "muldiv")
 				GENERATE_PATTERN(peepopt_pm, muldiv);
-			else if (genmode == "dffmux")
-				GENERATE_PATTERN(peepopt_pm, dffmux);
 			else
 				log_abort();
 			return;
@@ -106,7 +104,6 @@ struct PeepoptPass : public Pass {
 
 				pm.run_shiftmul();
 				pm.run_muldiv();
-				pm.run_dffmux();
 
 				for (auto w : module->wires()) {
 					auto it = w->attributes.find(ID::init);

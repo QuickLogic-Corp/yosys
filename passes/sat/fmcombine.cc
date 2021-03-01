@@ -114,8 +114,7 @@ struct FmcombineWorker
 					Cell *gold = import_prim_cell(cell, "_gold");
 					Cell *gate = import_prim_cell(cell, "_gate");
 					if (opts.initeq) {
-						if (cell->type.in(ID($ff), ID($dff), ID($dffe),
-								ID($dffsr), ID($adff), ID($dlatch), ID($dlatchsr))) {
+						if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 							SigSpec gold_q = gold->getPort(ID::Q);
 							SigSpec gate_q = gate->getPort(ID::Q);
 							SigSpec en = module->Initstate(NEW_ID);
@@ -235,7 +234,7 @@ struct FmcombineWorker
 
 struct FmcombinePass : public Pass {
 	FmcombinePass() : Pass("fmcombine", "combine two instances of a cell into one") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -272,7 +271,7 @@ struct FmcombinePass : public Pass {
 		log("If none of -fwd, -bwd, and -nop is given, then -fwd is used as default.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		opts_t opts;
 		Module *module = nullptr;

@@ -211,7 +211,7 @@ struct SpliceWorker
 		std::vector<Wire*> mod_wires = module->wires();
 
 		for (auto wire : mod_wires)
-			if ((!no_outputs && wire->port_output) || (do_wires && wire->name[0] == '\\')) {
+			if ((!no_outputs && wire->port_output) || (do_wires && wire->name.isPublic())) {
 				if (!design->selected(module, wire))
 					continue;
 				RTLIL::SigSpec sig = sigmap(wire);
@@ -246,7 +246,7 @@ struct SpliceWorker
 
 struct SplicePass : public Pass {
 	SplicePass() : Pass("splice", "create explicit splicing cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -287,7 +287,7 @@ struct SplicePass : public Pass {
 		log("by selected wires are rewired.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool sel_by_cell = false;
 		bool sel_by_wire = false;

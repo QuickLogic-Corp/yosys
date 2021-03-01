@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthAchronixPass : public ScriptPass {
   SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Acrhonix Speedster22i FPGAs.") { }
 
-  void help() YS_OVERRIDE
+  void help() override
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     log("\n");
@@ -63,7 +63,7 @@ struct SynthAchronixPass : public ScriptPass {
   string top_opt, family_opt, vout_file;
   bool retime, flatten;
 
-  void clear_flags() YS_OVERRIDE
+  void clear_flags() override
   {
     top_opt = "-auto-top";
     vout_file = "";
@@ -71,7 +71,7 @@ struct SynthAchronixPass : public ScriptPass {
     flatten = true;
   }
 
-  void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+  void execute(std::vector<std::string> args, RTLIL::Design *design) override
   {
     string run_from, run_to;
     clear_flags();
@@ -118,7 +118,7 @@ struct SynthAchronixPass : public ScriptPass {
     log_pop();
   }
 
-  void script() YS_OVERRIDE
+  void script() override
   {
     if (check_label("begin"))
       {
@@ -144,12 +144,12 @@ struct SynthAchronixPass : public ScriptPass {
         run("opt -fast -mux_undef -undriven -fine -full");
         run("memory_map");
         run("opt -undriven -fine");
-        run("dff2dffe -direct-match $_DFF_*");
         run("opt -fine");
         run("techmap -map +/techmap.v");
         run("opt -full");
         run("clean -purge");
         run("setundef -undriven -zero");
+        run("dfflegalize -cell $_DFF_P_ x");
         if (retime || help_mode)
           run("abc -markgroups -dff -D 1", "(only if -retime)");
       }

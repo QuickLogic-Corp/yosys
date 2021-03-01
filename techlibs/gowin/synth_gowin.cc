@@ -29,7 +29,7 @@ struct SynthGowinPass : public ScriptPass
 {
 	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -43,6 +43,11 @@ struct SynthGowinPass : public ScriptPass
 		log("    -vout <file>\n");
 		log("        write the design to the specified Verilog netlist file. writing of an\n");
 		log("        output file is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON netlist file. writing of an\n");
+		log("        output file is omitted if this parameter is not specified.\n");
+		log("        This disables features not yet supported by nexpnr-gowin.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -69,9 +74,12 @@ struct SynthGowinPass : public ScriptPass
 		log("\n");
 		log("    -noiopads\n");
 		log("        do not emit IOB at top level ports\n");
-		//log("\n");
-		//log("    -abc9\n");
-		//log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("\n");
+		log("    -noalu\n");
+		log("        do not use ALU cells\n");
+		log("\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -79,13 +87,14 @@ struct SynthGowinPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, vout_file;
-	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads;
+	string top_opt, vout_file, json_file;
+	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads, noalu;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
+		json_file = "";
 		retime = false;
 		flatten = true;
 		nobram = false;
@@ -94,9 +103,10 @@ struct SynthGowinPass : public ScriptPass
 		nowidelut = false;
 		abc9 = false;
 		noiopads = false;
+		noalu = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -110,6 +120,14 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-vout" && argidx+1 < args.size()) {
 				vout_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
+				nobram = true;
+				nolutram = true;
+				nowidelut = true;
+				noalu = true;
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -144,10 +162,14 @@ struct SynthGowinPass : public ScriptPass
 				nowidelut = true;
 				continue;
 			}
-			//if (args[argidx] == "-abc9") {
-			//	abc9 = true;
-			//	continue;
-			//}
+			if (args[argidx] == "-noalu") {
+				noalu = true;
+				continue;
+			}
+			if (args[argidx] == "-abc9") {
+				abc9 = true;
+				continue;
+			}
 			if (args[argidx] == "-noiopads") {
 				noiopads = true;
 				continue;
@@ -167,11 +189,11 @@ struct SynthGowinPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/gowin/cells_sim.v");
+			run("read_verilog -specify -lib +/gowin/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -198,7 +220,7 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("memory_bram -rules +/gowin/lutrams.txt");
 			run("techmap -map +/gowin/lutrams_map.v");
-			run("determine_init");
+			run("setundef -params -zero t:RAM16S4");
 		}
 
 		if (check_label("map_ffram"))
@@ -210,7 +232,11 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_gates"))
 		{
-			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
+			if (noalu) {
+				run("techmap -map +/techmap.v");
+			} else {
+				run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
+			}
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
@@ -219,10 +245,11 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dff2dffs -match-init");
 			run("opt_clean");
-			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+			if (nodffe)
+				run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFF_?P?_ r -cell $_DFF_?P?_ r");
+			else
+				run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r -cell $_DFFE_?P?P_ r");
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
@@ -230,13 +257,15 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			/*if (nowidelut && abc9) {
-				run("abc9 -lut 4");
-			} else*/ if (nowidelut && !abc9) {
+			if (nowidelut && abc9) {
+				run("read_verilog -icells -lib -specify +/abc9_model.v");
+				run("abc9 -maxlut 4 -W 500");
+			} else if (nowidelut && !abc9) {
 				run("abc -lut 4");
-			} else /*if (!nowidelut && abc9) {
-				run("abc9 -lut 4:8");
-			} else*/ if (!nowidelut && !abc9) {
+			} else if (!nowidelut && abc9) {
+				run("read_verilog -icells -lib -specify +/abc9_model.v");
+				run("abc9 -maxlut 8 -W 500");
+			} else if (!nowidelut && !abc9) {
 				run("abc -lut 4:8");
 			}
 			run("clean");
@@ -252,6 +281,7 @@ struct SynthGowinPass : public ScriptPass
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
 					"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
 			run("clean");
+			run("autoname");
 		}
 
 		if (check_label("check"))
@@ -266,6 +296,9 @@ struct SynthGowinPass : public ScriptPass
 			if (!vout_file.empty() || help_mode)
 				 run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
 						help_mode ? "<file-name>" : vout_file.c_str()));
+			if (!json_file.empty() || help_mode)
+				 run(stringf("write_json %s",
+						help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
 } SynthGowinPass;

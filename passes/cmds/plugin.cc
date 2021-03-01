@@ -93,13 +93,17 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 #else
 void load_plugin(std::string, std::vector<std::string>)
 {
-	log_error("This version of yosys is built without plugin support.\n");
+	log_error(
+		"\n  This version of Yosys cannot load plugins at runtime.\n"
+		"  Some plugins may have been included at build time.\n"
+		"  Use option `-H' to see the available built-in and plugin commands.\n"
+	);
 }
 #endif
 
 struct PluginPass : public Pass {
 	PluginPass() : Pass("plugin", "load and list loaded plugins") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -117,7 +121,7 @@ struct PluginPass : public Pass {
 		log("        List loaded plugins\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string plugin_filename;
 		std::vector<std::string> plugin_aliases;

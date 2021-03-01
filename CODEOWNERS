@@ -25,6 +25,9 @@ passes/opt/opt_lut.cc          @whitequark
 # These still override previous lines, so be careful not to
 # accidentally disable any of the above rules.
 
+frontends/verilog/             @zachjs
+frontends/ast/                 @zachjs
+
 techlibs/intel_alm/            @ZirconiumX
 techlibs/quicklogic/           @kgugala
 
@@ -34,5 +37,6 @@ misc/*.py                      @btut
 backends/firrtl                @ucbjrl @azidar
 
 passes/sat/qbfsat.cc           @boqwxp
+passes/sat/qbfsat.h            @boqwxp
 passes/cmds/exec.cc            @boqwxp
 passes/cmds/printattrs.cc      @boqwxp

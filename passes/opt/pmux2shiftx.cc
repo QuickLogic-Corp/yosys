@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -30,7 +31,7 @@ struct OnehotDatabase
 	bool verbose = false;
 	bool initialized = false;
 
-	pool<SigBit> init_ones;
+	FfInitVals initvals;
 	dict<SigSpec, pool<SigSpec>> sig_sources_db;
 	dict<SigSpec, bool> sig_onehot_cache;
 	pool<SigSpec> recursion_guard;
@@ -44,30 +45,20 @@ struct OnehotDatabase
 		log_assert(!initialized);
 		initialized = true;
 
-		for (auto wire : module->wires())
-		{
-			auto it = wire->attributes.find(ID::init);
-			if (it == wire->attributes.end())
-				continue;
-
-			auto &val = it->second;
-			int width = std::max(GetSize(wire), GetSize(val));
-
-			for (int i = 0; i < width; i++)
-				if (val[i] == State::S1)
-					init_ones.insert(sigmap(SigBit(wire, i)));
-		}
+		initvals.set(&sigmap, module);
 
 		for (auto cell : module->cells())
 		{
 			vector<SigSpec> inputs;
 			SigSpec output;
 
-			if (cell->type.in(ID($adff), ID($dff), ID($dffe), ID($dlatch), ID($ff)))
+			if (cell->type.in(ID($adff), ID($adffe), ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($ff)))
 			{
 				output = cell->getPort(ID::Q);
-				if (cell->type == ID($adff))
+				if (cell->type.in(ID($adff), ID($adffe), ID($adlatch)))
 					inputs.push_back(cell->getParam(ID::ARST_VALUE));
+				if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce)))
+					inputs.push_back(cell->getParam(ID::SRST_VALUE));
 				inputs.push_back(cell->getPort(ID::D));
 			}
 
@@ -117,7 +108,7 @@ struct OnehotDatabase
 
 		bool found_init_ones = false;
 		for (auto bit : sig) {
-			if (init_ones.count(bit)) {
+			if (initvals(bit) == State::S1) {
 				if (found_init_ones) {
 					if (verbose)
 						log("%*s   - non-onehot init value\n", indent, "");
@@ -198,7 +189,7 @@ struct OnehotDatabase
 
 struct Pmux2ShiftxPass : public Pass {
 	Pmux2ShiftxPass() : Pass("pmux2shiftx", "transform $pmux cells to $shiftx cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -225,7 +216,7 @@ struct Pmux2ShiftxPass : public Pass {
 		log("        disable $sub inference for \"range decoders\"\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int min_density = 50;
 		int min_choices = 3;
@@ -737,7 +728,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 struct OnehotPass : public Pass {
 	OnehotPass() : Pass("onehot", "optimize $eq cells for onehot signals") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -749,7 +740,7 @@ struct OnehotPass : public Pass {
 		log("        verbose output\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool verbose = false;
 		bool verbose_onehot = false;

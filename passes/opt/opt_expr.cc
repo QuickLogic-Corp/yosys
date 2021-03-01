@@ -117,7 +117,7 @@ void replace_undriven(RTLIL::Module *module, const CellTypes &ct)
 }
 
 void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
-		const std::string &info YS_ATTRIBUTE(unused), IdString out_port, RTLIL::SigSpec out_val)
+		const std::string &info, IdString out_port, RTLIL::SigSpec out_val)
 {
 	RTLIL::SigSpec Y = cell->getPort(out_port);
 	out_val.extend_u0(Y.size(), false);
@@ -416,7 +416,7 @@ int get_onehot_bit_index(RTLIL::SigSpec signal)
 	return bit_index;
 }
 
-void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool clkinv)
+void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
 {
 	if (!design->selected(module))
 		return;
@@ -465,17 +465,23 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 #define ACTION_DO(_p_, _s_) do { cover("opt.opt_expr.action_" S__LINE__); replace_cell(assign_map, module, cell, input.as_string(), _p_, _s_); goto next_cell; } while (0)
 #define ACTION_DO_Y(_v_) ACTION_DO(ID::Y, RTLIL::SigSpec(RTLIL::State::S ## _v_))
 
-		if (clkinv)
+		if (!noclkinv)
 		{
-			if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($adff), ID($fsm), ID($memrd), ID($memwr)))
+			if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memwr)))
 				handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
 
-			if (cell->type.in(ID($sr), ID($dffsr), ID($dlatchsr))) {
+			if (cell->type.in(ID($sr), ID($dffsr), ID($dffsre), ID($dlatchsr))) {
 				handle_polarity_inv(cell, ID::SET, ID::SET_POLARITY, assign_map, invert_map);
 				handle_polarity_inv(cell, ID::CLR, ID::CLR_POLARITY, assign_map, invert_map);
 			}
 
-			if (cell->type.in(ID($dffe), ID($dlatch), ID($dlatchsr)))
+			if (cell->type.in(ID($adff), ID($adffe), ID($adlatch)))
+				handle_polarity_inv(cell, ID::ARST, ID::ARST_POLARITY, assign_map, invert_map);
+
+			if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce)))
+				handle_polarity_inv(cell, ID::SRST, ID::SRST_POLARITY, assign_map, invert_map);
+
+			if (cell->type.in(ID($dffe), ID($adffe), ID($sdffe), ID($sdffce), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr)))
 				handle_polarity_inv(cell, ID::EN, ID::EN_POLARITY, assign_map, invert_map);
 
 			handle_clkpol_celltype_swap(cell, "$_SR_N?_", "$_SR_P?_", ID::S, assign_map, invert_map);
@@ -489,11 +495,34 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			handle_clkpol_celltype_swap(cell, "$_DFF_N??_", "$_DFF_P??_", ID::C, assign_map, invert_map);
 			handle_clkpol_celltype_swap(cell, "$_DFF_?N?_", "$_DFF_?P?_", ID::R, assign_map, invert_map);
 
+			handle_clkpol_celltype_swap(cell, "$_DFFE_N???_", "$_DFFE_P???_", ID::C, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_DFFE_?N??_", "$_DFFE_?P??_", ID::R, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_DFFE_???N_", "$_DFFE_???P_", ID::E, assign_map, invert_map);
+
+			handle_clkpol_celltype_swap(cell, "$_SDFF_N??_", "$_SDFF_P??_", ID::C, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_SDFF_?N?_", "$_SDFF_?P?_", ID::R, assign_map, invert_map);
+
+			handle_clkpol_celltype_swap(cell, "$_SDFFE_N???_", "$_SDFFE_P???_", ID::C, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_SDFFE_?N??_", "$_SDFFE_?P??_", ID::R, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_SDFFE_???N_", "$_SDFFE_???P_", ID::E, assign_map, invert_map);
+
+			handle_clkpol_celltype_swap(cell, "$_SDFFCE_N???_", "$_SDFFCE_P???_", ID::C, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_SDFFCE_?N??_", "$_SDFFCE_?P??_", ID::R, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_SDFFCE_???N_", "$_SDFFCE_???P_", ID::E, assign_map, invert_map);
+
 			handle_clkpol_celltype_swap(cell, "$_DFFSR_N??_", "$_DFFSR_P??_", ID::C, assign_map, invert_map);
 			handle_clkpol_celltype_swap(cell, "$_DFFSR_?N?_", "$_DFFSR_?P?_", ID::S, assign_map, invert_map);
 			handle_clkpol_celltype_swap(cell, "$_DFFSR_??N_", "$_DFFSR_??P_", ID::R, assign_map, invert_map);
 
+			handle_clkpol_celltype_swap(cell, "$_DFFSRE_N???_", "$_DFFSRE_P???_", ID::C, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_DFFSRE_?N??_", "$_DFFSRE_?P??_", ID::S, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_DFFSRE_??N?_", "$_DFFSRE_??P?_", ID::R, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_DFFSRE_???N_", "$_DFFSRE_???P_", ID::E, assign_map, invert_map);
+
 			handle_clkpol_celltype_swap(cell, "$_DLATCH_N_", "$_DLATCH_P_", ID::E, assign_map, invert_map);
+
+			handle_clkpol_celltype_swap(cell, "$_DLATCH_N??_", "$_DLATCH_P??_", ID::E, assign_map, invert_map);
+			handle_clkpol_celltype_swap(cell, "$_DLATCH_?N?_", "$_DLATCH_?P?_", ID::R, assign_map, invert_map);
 
 			handle_clkpol_celltype_swap(cell, "$_DLATCHSR_N??_", "$_DLATCHSR_P??_", ID::E, assign_map, invert_map);
 			handle_clkpol_celltype_swap(cell, "$_DLATCHSR_?N?_", "$_DLATCHSR_?P?_", ID::S, assign_map, invert_map);
@@ -575,7 +604,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					cover("opt.opt_expr.const_xnor");
 					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
-					int width = cell->getParam(ID::Y_WIDTH).as_int();
+					int width = GetSize(cell->getPort(ID::Y));
 					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, SigSpec(RTLIL::State::S1, width));
 					goto next_cell;
 				}
@@ -1567,6 +1596,14 @@ skip_identity:
 				log_debug("Removing low %d A and %d B bits from cell `%s' in module `%s'.\n",
 						a_zeros, b_zeros, cell->name.c_str(), module->name.c_str());
 
+				if (y_zeros >= GetSize(sig_y)) {
+					module->connect(sig_y, RTLIL::SigSpec(0, GetSize(sig_y)));
+					module->remove(cell);
+
+					did_something = true;
+					goto next_cell;
+				}
+
 				if (a_zeros) {
 					cell->setPort(ID::A, sig_a.extract_end(a_zeros));
 					cell->parameters[ID::A_WIDTH] = GetSize(sig_a) - a_zeros;
@@ -2009,7 +2046,7 @@ skip_alu_split:
 
 struct OptExprPass : public Pass {
 	OptExprPass() : Pass("opt_expr", "perform const folding and simple expression rewriting") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -2027,8 +2064,8 @@ struct OptExprPass : public Pass {
 		log("    -undriven\n");
 		log("        replace undriven nets with undef (x) constants\n");
 		log("\n");
-		log("    -clkinv\n");
-		log("        optimize clock inverters by changing FF types\n");
+		log("    -noclkinv\n");
+		log("        do not optimize clock inverters by changing FF types\n");
 		log("\n");
 		log("    -fine\n");
 		log("        perform fine-grain optimizations\n");
@@ -2043,12 +2080,12 @@ struct OptExprPass : public Pass {
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool mux_undef = false;
 		bool mux_bool = false;
 		bool undriven = false;
-		bool clkinv = false;
+		bool noclkinv = false;
 		bool do_fine = false;
 		bool keepdc = false;
 
@@ -2069,8 +2106,8 @@ struct OptExprPass : public Pass {
 				undriven = true;
 				continue;
 			}
-			if (args[argidx] == "-clkinv") {
-				clkinv = true;
+			if (args[argidx] == "-noclkinv") {
+				noclkinv = true;
 				continue;
 			}
 			if (args[argidx] == "-fine") {
@@ -2107,12 +2144,12 @@ struct OptExprPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
 					if (did_something)
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
 				if (!keepdc)
-					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, noclkinv);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);

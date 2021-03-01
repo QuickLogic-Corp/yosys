@@ -321,7 +321,6 @@ struct define_body_t
 define_map_t::define_map_t()
 {
 	add("YOSYS", "1");
-	add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
 }
 
 // We must define this destructor here (rather than relying on the default), because we need to
@@ -391,13 +390,16 @@ static void input_file(std::istream &f, std::string filename)
 // the argument list); false if we finished with ','.
 static bool read_argument(std::string &dest)
 {
+	skip_spaces();
 	std::vector<char> openers;
 	for (;;) {
-		skip_spaces();
 		std::string tok = next_token(true);
 		if (tok == ")") {
-			if (openers.empty())
+			if (openers.empty()) {
+				while (dest.size() && (dest.back() == ' ' || dest.back() == '\t'))
+					dest = dest.substr(0, dest.size() - 1);
 				return true;
+			}
 			if (openers.back() != '(')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
 				          openers.back(), tok[0]);
@@ -475,7 +477,16 @@ static bool try_expand_macro(define_map_t &defines, std::string &tok)
 	std::string name = tok.substr(1);
 	std::string skipped_spaces = skip_spaces();
 	tok = next_token(false);
-	if (tok == "(" && body->has_args) {
+	if (body->has_args) {
+		if (tok != "(") {
+			if (tok.size() == 1 && iscntrl(tok[0])) {
+				char buf[5];
+				snprintf(buf, sizeof(buf), "\\x%02x", tok[0]);
+				tok = buf;
+			}
+			log_error("Expected to find '(' to begin macro arguments for '%s', but instead found '%s'\n",
+				name.c_str(), tok.c_str());
+		}
 		std::vector<std::string> args;
 		bool done = false;
 		while (!done) {
@@ -591,7 +602,7 @@ read_define_args()
 
 		default:
 			// The only FSM states are 0-2 and we dealt with 2 at the start of the loop.
-			__builtin_unreachable();
+			log_assert(false);
 		}
 	}
 

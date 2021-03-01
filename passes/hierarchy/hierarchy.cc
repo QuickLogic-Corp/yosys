@@ -224,7 +224,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				{
 					{".v", "verilog"},
 					{".sv", "verilog -sv"},
-					{".il", "ilang"}
+					{".il", "rtlil"}
 				};
 
 				for (auto &ext : extensions_list)
@@ -558,7 +558,7 @@ RTLIL::Wire *find_implicit_port_wire(Module *module, Cell *cell, const std::stri
 
 struct HierarchyPass : public Pass {
 	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -639,7 +639,7 @@ struct HierarchyPass : public Pass {
 		log("in the current design.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing HIERARCHY pass (managing design hierarchy).\n");
 
@@ -765,11 +765,13 @@ struct HierarchyPass : public Pass {
 			top_mod = design->module(top_name);
 
 			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
-			for (auto &para : parameters) {
-				SigSpec sig_value;
-				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
-					log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
-				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+			if ((top_mod == nullptr && design->module(abstract_id)) || top_mod != nullptr) {
+				for (auto &para : parameters) {
+					SigSpec sig_value;
+					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
+						log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+					top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+				}
 			}
 
 			if (top_mod == nullptr && design->module(abstract_id))
@@ -1231,14 +1233,18 @@ struct HierarchyPass : public Pass {
 						{
 							int n = GetSize(conn.second) - GetSize(w);
 							if (!w->port_input && w->port_output)
-								module->connect(sig.extract(GetSize(w), n), Const(0, n));
+							{
+								RTLIL::SigSpec out = sig.extract(0, GetSize(w));
+								out.extend_u0(GetSize(sig), w->is_signed);
+								module->connect(sig.extract(GetSize(w), n), out.extract(GetSize(w), n));
+							}
 							sig.remove(GetSize(w), n);
 						}
 						else
 						{
 							int n = GetSize(w) - GetSize(conn.second);
 							if (w->port_input && !w->port_output)
-								sig.append(Const(0, n));
+								sig.extend_u0(GetSize(w), sig.is_wire() && sig.as_wire()->is_signed);
 							else
 								sig.append(module->addWire(NEW_ID, n));
 						}

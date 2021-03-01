@@ -89,6 +89,12 @@ bool memhasher_active = false;
 uint32_t memhasher_rng = 123456;
 std::vector<void*> memhasher_store;
 
+std::string yosys_share_dirname;
+std::string yosys_abc_executable;
+
+void init_share_dirname();
+void init_abc_executable_name();
+
 void memhasher_on()
 {
 #if defined(__linux__) || defined(__FreeBSD__)
@@ -523,6 +529,8 @@ void yosys_setup()
 	if(already_setup)
 		return;
 	already_setup = true;
+	init_share_dirname();
+	init_abc_executable_name();
 
 #define X(_id) RTLIL::ID::_id = "\\" # _id;
 #include "kernel/constids.inc"
@@ -713,7 +721,7 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 
 struct TclPass : public Pass {
 	TclPass() : Pass("tcl", "execute a TCL script file") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    tcl <filename> [args]\n");
@@ -730,7 +738,7 @@ struct TclPass : public Pass {
 		log("the standard $argc and $argv variables.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *) override {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 
@@ -825,37 +833,73 @@ std::string proc_self_dirname()
 #endif
 
 #if defined(EMSCRIPTEN) || defined(__wasm)
-std::string proc_share_dirname()
+void init_share_dirname()
 {
-	return "/share/";
+	yosys_share_dirname = "/share/";
 }
 #else
-std::string proc_share_dirname()
+void init_share_dirname()
 {
 	std::string proc_self_path = proc_self_dirname();
 #  if defined(_WIN32) && !defined(YOSYS_WIN32_UNIX_DIR)
 	std::string proc_share_path = proc_self_path + "share\\";
-	if (check_file_exists(proc_share_path, true))
-		return proc_share_path;
+	if (check_file_exists(proc_share_path, true)) {
+		yosys_share_dirname = proc_share_path;
+		return;
+	}
 	proc_share_path = proc_self_path + "..\\share\\";
-	if (check_file_exists(proc_share_path, true))
-		return proc_share_path;
+	if (check_file_exists(proc_share_path, true)) {
+		yosys_share_dirname = proc_share_path;
+		return;
+	}
 #  else
 	std::string proc_share_path = proc_self_path + "share/";
-	if (check_file_exists(proc_share_path, true))
-		return proc_share_path;
+	if (check_file_exists(proc_share_path, true)) {
+		yosys_share_dirname = proc_share_path;
+		return;
+	}
 	proc_share_path = proc_self_path + "../share/" + proc_program_prefix()+ "yosys/";
-	if (check_file_exists(proc_share_path, true))
-		return proc_share_path;
+	if (check_file_exists(proc_share_path, true)) {
+		yosys_share_dirname = proc_share_path;
+		return;
+	}
 #    ifdef YOSYS_DATDIR
 	proc_share_path = YOSYS_DATDIR "/";
-	if (check_file_exists(proc_share_path, true))
-		return proc_share_path;
+	if (check_file_exists(proc_share_path, true)) {
+		yosys_share_dirname = proc_share_path;
+		return;
+	}
 #    endif
 #  endif
-	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
 #endif
+
+void init_abc_executable_name()
+{
+#ifdef ABCEXTERNAL
+	std::string exe_file;
+	if (std::getenv("ABC")) {
+		yosys_abc_executable = std::getenv("ABC");
+	} else {
+		yosys_abc_executable = ABCEXTERNAL;
+	}
+#else
+	yosys_abc_executable = proc_self_dirname() + proc_program_prefix()+ "yosys-abc";
+#endif
+#ifdef _WIN32
+#ifndef ABCEXTERNAL
+	if (!check_file_exists(yosys_abc_executable + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc.exe"))
+		yosys_abc_executable = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
+#endif
+#endif
+}
+
+std::string proc_share_dirname()
+{
+	if (yosys_share_dirname.empty())
+		log_error("init_share_dirname: unable to determine share/ directory!\n");
+	return yosys_share_dirname;
+}
 
 std::string proc_program_prefix()
 {
@@ -930,7 +974,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".il") == 0)
-			command = "ilang";
+			command = "rtlil";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".ys") == 0)
 			command = "script";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".tcl") == 0)
@@ -1050,8 +1094,10 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.compare(filename.size()-2, std::string::npos, ".v") == 0)
 			command = "verilog";
+		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".sv") == 0)
+			command = "verilog -sv";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0)
-			command = "ilang";
+			command = "rtlil";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".cc") == 0)
 			command = "cxxrtl";
 		else if (filename.size() > 4 && filename.compare(filename.size()-4, std::string::npos, ".aig") == 0)
@@ -1063,7 +1109,7 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
 		else if (filename == "-")
-			command = "ilang";
+			command = "rtlil";
 		else if (filename.empty())
 			return;
 		else
@@ -1220,7 +1266,7 @@ void shell(RTLIL::Design *design)
 
 struct ShellPass : public Pass {
 	ShellPass() : Pass("shell", "enter interactive command mode") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		log("\n");
 		log("    shell\n");
 		log("\n");
@@ -1252,7 +1298,7 @@ struct ShellPass : public Pass {
 		log("Press Ctrl-D or type 'exit' to leave the interactive shell.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		extra_args(args, 1, design, false);
 		shell(design);
 	}
@@ -1261,7 +1307,7 @@ struct ShellPass : public Pass {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 struct HistoryPass : public Pass {
 	HistoryPass() : Pass("history", "show last interactive commands") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		log("\n");
 		log("    history\n");
 		log("\n");
@@ -1270,7 +1316,7 @@ struct HistoryPass : public Pass {
 		log("from executed scripts.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		extra_args(args, 1, design, false);
 #ifdef YOSYS_ENABLE_READLINE
 		for(HIST_ENTRY **list = history_list(); *list != NULL; list++)
@@ -1285,7 +1331,7 @@ struct HistoryPass : public Pass {
 
 struct ScriptCmdPass : public Pass {
 	ScriptCmdPass() : Pass("script", "execute commands from file or wire") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
@@ -1308,7 +1354,7 @@ struct ScriptCmdPass : public Pass {
 		log("'-module' mode can be exited by using the 'cd' command.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool scriptwire = false;
 

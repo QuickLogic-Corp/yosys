@@ -368,7 +368,7 @@ struct ShowWorker
 			const char *shape = "diamond";
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
 						id2num(wire->name), shape, findLabel(wire->name.str()),
 						nextColor(RTLIL::SigSpec(wire), "color=\"black\"").c_str());
@@ -587,7 +587,7 @@ struct ShowWorker
 
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -605,7 +605,7 @@ struct ShowPass : public Pass {
 		log("        generate a .dot file, or other <format> strings such as 'svg' or 'ps'\n");
 		log("        to generate files in other formats (this calls the 'dot' command).\n");
 		log("\n");
-		log("    -lib <verilog_or_ilang_file>\n");
+		log("    -lib <verilog_or_rtlil_file>\n");
 		log("        Use the specified library file for determining whether cell ports are\n");
 		log("        inputs or outputs. This option can be used multiple times to specify\n");
 		log("        more than one library.\n");
@@ -674,7 +674,7 @@ struct ShowPass : public Pass {
 		log("the 'show' command is executed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Generating Graphviz representation of design.\n");
 		log_push();
@@ -811,7 +811,7 @@ struct ShowPass : public Pass {
 			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename.c_str());
 			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "ilang" : "verilog"));
+			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 			libs.push_back(lib);
 		}
 

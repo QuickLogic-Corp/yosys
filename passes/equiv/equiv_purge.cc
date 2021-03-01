@@ -35,7 +35,7 @@ struct EquivPurgeWorker
 	{
 		if (sig.is_wire()) {
 			Wire *wire = sig.as_wire();
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				if (!wire->port_output) {
 					log("  Module output: %s (%s)\n", log_signal(wire), log_id(cellname));
 					wire->port_output = true;
@@ -62,7 +62,7 @@ struct EquivPurgeWorker
 	{
 		if (sig.is_wire()) {
 			Wire *wire = sig.as_wire();
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				if (!wire->port_output) {
 					log("  Module input: %s\n", log_signal(wire));
 					wire->port_input = true;
@@ -176,7 +176,7 @@ struct EquivPurgeWorker
 
 struct EquivPurgePass : public Pass {
 	EquivPurgePass() : Pass("equiv_purge", "purge equivalence checking module") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -187,7 +187,7 @@ struct EquivPurgePass : public Pass {
 		log("ports as needed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		log_header(design, "Executing EQUIV_PURGE pass.\n");
 

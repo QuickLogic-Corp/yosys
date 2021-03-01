@@ -65,8 +65,10 @@ struct EquivInductWorker
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
 					int cond = ez->IFF(ez_a, ez_b);
-					if (satgen.model_undef)
+					if (satgen.model_undef) {
+						cond = ez->AND(cond, ez->NOT(satgen.importUndefSigBit(bit_b, step)));
 						cond = ez->OR(cond, satgen.importUndefSigBit(bit_a, step));
+					}
 					ez_equal_terms.push_back(cond);
 				}
 			}
@@ -162,7 +164,7 @@ struct EquivInductWorker
 
 struct EquivInductPass : public Pass {
 	EquivInductPass() : Pass("equiv_induct", "proving $equiv cells using temporal induction") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -192,7 +194,7 @@ struct EquivInductPass : public Pass {
 		log("after reset.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		int success_counter = 0;
 		bool model_undef = false;

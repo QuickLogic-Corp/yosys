@@ -203,7 +203,7 @@ static void run_ice40_opts(Module *module)
 
 struct Ice40OptPass : public Pass {
 	Ice40OptPass() : Pass("ice40_opt", "iCE40: perform simple optimizations") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -215,12 +215,12 @@ struct Ice40OptPass : public Pass {
 		log("        <ice40 specific optimizations>\n");
 		log("        opt_expr -mux_undef -undriven [-full]\n");
 		log("        opt_merge\n");
-		log("        opt_rmdff\n");
+		log("        opt_dff\n");
 		log("        opt_clean\n");
 		log("    while <changed design>\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string opt_expr_args = "-mux_undef -undriven";
 
@@ -247,7 +247,7 @@ struct Ice40OptPass : public Pass {
 
 			Pass::call(design, "opt_expr " + opt_expr_args);
 			Pass::call(design, "opt_merge");
-			Pass::call(design, "opt_rmdff");
+			Pass::call(design, "opt_dff");
 			Pass::call(design, "opt_clean");
 
 			if (design->scratchpad_get_bool("opt.did_something") == false)

@@ -517,6 +517,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "<<<" { return OP_SSHL; }
 ">>>" { return OP_SSHR; }
 
+"'" { return OP_CAST; }
+
 "::"  { return TOK_PACKAGESEP; }
 "++"  { return TOK_INCREMENT; }
 "--"  { return TOK_DECREMENT; }
@@ -525,6 +527,12 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "-:" { return TOK_NEG_INDEXED; }
 
 ".*" { return TOK_WILDCARD_CONNECT; }
+
+"|=" { SV_KEYWORD(TOK_OR_ASSIGN); }
+"&=" { SV_KEYWORD(TOK_AND_ASSIGN); }
+"+=" { SV_KEYWORD(TOK_PLUS_ASSIGN); }
+"-=" { SV_KEYWORD(TOK_SUB_ASSIGN); }
+"^=" { SV_KEYWORD(TOK_XOR_ASSIGN); }
 
 [-+]?[=*]> {
 	if (!specify_mode) REJECT;
