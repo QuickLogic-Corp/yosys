@@ -47,6 +47,9 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("        - ap3: ArcticPro 3 \n");
         log("        - qlf_k4n8: qlf_k4n8 \n");
         log("\n");
+        log("    -no_ff_map\n");
+        log("        Specifying this switch turns off ff techmap.\n");
+        log("\n");
         log("    -no_abc_opt\n");
         log("        By default most of ABC logic optimization features is\n");
         log("        enabled. Specifying this switch turns them off.\n");
@@ -79,6 +82,7 @@ struct SynthQuickLogicPass : public ScriptPass {
     string top_opt, edif_file, blif_file, family, currmodule, verilog_file;
     bool inferAdder, infer_dbuff;
     bool abcOpt;
+    bool noffmap;
 
     void clear_flags() YS_OVERRIDE
     {
@@ -90,6 +94,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         family = "pp3";
         inferAdder = true;
         abcOpt = true;
+	noffmap = false;
         infer_dbuff = false;
     }
 
@@ -132,6 +137,10 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
             if (args[argidx] == "-no_abc_opt") {
                 abcOpt = false;
+                continue;
+            }
+            if (args[argidx] == "-no_ff_map") {
+                noffmap = true;
                 continue;
             }
             
@@ -205,9 +214,9 @@ struct SynthQuickLogicPass : public ScriptPass {
         }
 
         if (check_label("map_gates")) {
-            if(family == "qlf_k4n8") {
-                run("async2sync");
-            }
+            //if(family == "qlf_k4n8") {
+              //  run("async2sync");
+            //}
             if (inferAdder && family != "pp3" && family != "ap") {
                 run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
             } else {
@@ -241,9 +250,11 @@ struct SynthQuickLogicPass : public ScriptPass {
 
             techMapArgs += "_ffs_map.v";
 
-            if(family != "qlf_k4n8") {
+            if(!noffmap) {
+                run("shregmap -minlen 8 -maxlen 8");
                 run("techmap " + techMapArgs);
             }
+
             run("opt_expr -mux_undef");
             run("simplemap");
             if(family != "ap" && family != "pp3") {
@@ -284,10 +295,12 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
 
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
-            if(family != "qlf_k4n8") {
-                run("techmap " + techMapArgs);
-            }
 
+            if(!noffmap) {
+                run("shregmap -minlen 8 -maxlen 8");
+                run("techmap " + techMapArgs);
+	    }
+	
             run("clean");
             if(family != "pp3" && family != "ap") {
                 run("opt_lut");
