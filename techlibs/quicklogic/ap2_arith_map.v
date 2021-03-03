@@ -69,7 +69,8 @@ module _80_quicklogic_alu (
     end : slice
   endgenerate
 
-  generate if (Y_WIDTH >= 2) begin
+  generate
+		if (Y_WIDTH >= 2) begin
     full_adder inst_last (
       .A(AA[Y_WIDTH-1]),
       .B(BB[Y_WIDTH-1]),
@@ -77,6 +78,7 @@ module _80_quicklogic_alu (
       .CO(CO[Y_WIDTH-1]),
       .S(Y[Y_WIDTH-1])
     );
+		end
   endgenerate
 
   /* End implementation */
