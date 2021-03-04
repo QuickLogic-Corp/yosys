@@ -353,7 +353,9 @@ struct SynthQuickLogicPass : public ScriptPass {
                     } else {
                         run("iopadmap -bits -outpad out_buff A:Q -inpad in_buff Q:A");
                     }
-                }
+                } else {
+			run("clkbufmap -buf ck_buff out:in -inpad ck_pad out:in");
+		}
             } 
         }
 

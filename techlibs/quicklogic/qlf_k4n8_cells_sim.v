@@ -115,3 +115,16 @@ module sh_dff(
             Q <= D;
 endmodule
 
+module ck_buff(
+    (* clkbuf_driver *)
+    output out,
+    input in);
+  assign out = in;
+endmodule
+
+module ck_pad(
+    (* clkbuf_driver *)
+    output out,
+    input in);
+  assign out = in;
+endmodule
