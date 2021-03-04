@@ -72,10 +72,17 @@ struct JsonNode
 				break;
 			}
 
-			if ('0' <= ch && ch <= '9')
+			if (('0' <= ch && ch <= '9') || ch == '-')
 			{
+				bool negative = false;
 				type = 'N';
-				data_number = ch - '0';
+				if (ch == '-') {
+					data_number = 0;
+				       	negative = true;
+				} else {
+					data_number = ch - '0';
+				}
+
 				data_string += ch;
 
 				while (1)
@@ -97,6 +104,7 @@ struct JsonNode
 					data_string += ch;
 				}
 
+				data_number = negative ? -data_number : data_number;
 				data_string = "";
 				break;
 
@@ -535,7 +543,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 struct JsonFrontend : public Frontend {
 	JsonFrontend() : Frontend("json", "read JSON file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -545,7 +553,7 @@ struct JsonFrontend : public Frontend {
 		log("for a description of the file format.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing JSON frontend.\n");
 

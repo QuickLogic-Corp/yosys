@@ -30,7 +30,7 @@ struct SynthAnlogicPass : public ScriptPass
 {
 	SynthAnlogicPass() : ScriptPass("synth_anlogic", "synthesis for Anlogic FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -72,7 +72,7 @@ struct SynthAnlogicPass : public ScriptPass
 	string top_opt, edif_file, json_file;
 	bool flatten, retime, nolutram;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		edif_file = "";
@@ -82,7 +82,7 @@ struct SynthAnlogicPass : public ScriptPass
 		nolutram = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -137,7 +137,7 @@ struct SynthAnlogicPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -182,8 +182,8 @@ struct SynthAnlogicPass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
+			run("dfflegalize -cell $_DFFE_P??P_ r -cell $_SDFFE_P??P_ r -cell $_DLATCH_N??_ r");
 			run("techmap -D NO_LUT -map +/anlogic/cells_map.v");
-			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}

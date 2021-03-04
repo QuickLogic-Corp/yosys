@@ -36,7 +36,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct Abc9Pass : public ScriptPass
 {
 	Abc9Pass() : ScriptPass("abc9", "use ABC9 for technology mapping") { }
-	void on_register() YS_OVERRIDE
+	void on_register() override
 	{
 		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -v; &mfs";
 		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
@@ -81,7 +81,7 @@ struct Abc9Pass : public ScriptPass
 			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
 			"&mfs";
 	}
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -184,7 +184,7 @@ struct Abc9Pass : public ScriptPass
 	int maxlut;
 	std::string box_file;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		exe_cmd.str("");
 		exe_cmd << "abc9_exe";
@@ -195,7 +195,7 @@ struct Abc9Pass : public ScriptPass
 		box_file = "";
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string run_from, run_to;
 		clear_flags();
@@ -272,7 +272,7 @@ struct Abc9Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("check")) {
 			if (help_mode)
@@ -294,8 +294,8 @@ struct Abc9Pass : public ScriptPass
 			run("design -load $abc9_map");
 			run("proc");
 			run("wbflip");
-			run("techmap");
-			run("opt");
+			run("techmap -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
+			run("opt -nodffe -nosdff");
 			if (dff_mode || help_mode) {
 				if (!help_mode)
 					active_design->scratchpad_unset("abc9_ops.prep_dff_submod.did_something");
@@ -339,7 +339,7 @@ struct Abc9Pass : public ScriptPass
 
 		if (check_label("pre")) {
 			run("read_verilog -icells -lib -specify +/abc9_model.v");
-			run("scc -set_attr abc9_scc_id {}");
+			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else

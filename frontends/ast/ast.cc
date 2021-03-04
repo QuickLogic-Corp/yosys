@@ -95,6 +95,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_TO_SIGNED)
 	X(AST_TO_UNSIGNED)
 	X(AST_SELFSZ)
+	X(AST_CAST_SIZE)
 	X(AST_CONCAT)
 	X(AST_REPLICATE)
 	X(AST_BIT_NOT)
@@ -286,8 +287,7 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	}
 
 	std::string type_name = type2str(type);
-	fprintf(f, "%s%s <%s:%d.%d-%d.%d>", indent.c_str(), type_name.c_str(), filename.c_str(), location.first_line,
-		location.first_column, location.last_line, location.last_column);
+	fprintf(f, "%s%s <%s>", indent.c_str(), type_name.c_str(), loc_string().c_str());
 
 	if (!flag_no_dump_ptr) {
 		if (id2ast)
@@ -332,6 +332,12 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	if (!multirange_dimensions.empty()) {
 		fprintf(f, " multirange=[");
 		for (int v : multirange_dimensions)
+			fprintf(f, " %d", v);
+		fprintf(f, " ]");
+	}
+	if (!multirange_swapped.empty()) {
+		fprintf(f, " multirange_swapped=[");
+		for (auto v : multirange_swapped)
 			fprintf(f, " %d", v);
 		fprintf(f, " ]");
 	}
@@ -541,9 +547,9 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_CASE:
-		if (!children.empty() && children[0]->type == AST_CONDX)
+		if (children.size() > 1 && children[1]->type == AST_CONDX)
 			fprintf(f, "%s" "casex (", indent.c_str());
-		else if (!children.empty() && children[0]->type == AST_CONDZ)
+		else if (children.size() > 1 && children[1]->type == AST_CONDZ)
 			fprintf(f, "%s" "casez (", indent.c_str());
 		else
 			fprintf(f, "%s" "case (", indent.c_str());
@@ -952,6 +958,16 @@ RTLIL::Const AstNode::realAsConst(int width)
 	return result;
 }
 
+std::string AstNode::loc_string() const
+{
+	return stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+}
+
+void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
+{
+	obj->attributes[ID::src] = ast->loc_string();
+}
+
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
@@ -967,8 +983,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 	current_module = new AstModule;
 	current_module->ast = NULL;
 	current_module->name = ast->str;
-	current_module->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line,
-		ast->location.first_column, ast->location.last_line, ast->location.last_column);
+	set_src_attr(current_module, ast);
 	current_module->set_bool_attribute(ID::cells_not_processed);
 
 	current_ast_mod = ast;
@@ -1222,13 +1237,13 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
 					log_file_error((*it)->filename, (*it)->location.first_line, "Re-definition of module `%s'!\n", (*it)->str.c_str());
 				} else if (nooverwrite) {
-					log("Ignoring re-definition of module `%s' at %s:%d.%d-%d.%d.\n",
-							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->location.first_line, (*it)->location.first_column, (*it)->location.last_line, (*it)->location.last_column);
+					log("Ignoring re-definition of module `%s' at %s.\n",
+							(*it)->str.c_str(), (*it)->loc_string().c_str());
 					continue;
 				} else {
-					log("Replacing existing%s module `%s' at %s:%d.%d-%d.%d.\n",
+					log("Replacing existing%s module `%s' at %s.\n",
 							existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "",
-							(*it)->str.c_str(), (*it)->filename.c_str(), (*it)->location.first_line, (*it)->location.first_column, (*it)->location.last_line, (*it)->location.last_column);
+							(*it)->str.c_str(), (*it)->loc_string().c_str());
 					design->remove(existing_mod);
 				}
 			}
@@ -1504,6 +1519,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		}
 
 	} else {
+		modname = new_modname;
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}
 

@@ -93,6 +93,8 @@ extern Tcl_Obj *Tcl_NewIntObj(int intValue);
 extern Tcl_Obj *Tcl_NewListObj(int objc, Tcl_Obj *const objv[]);
 extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *part2Ptr, Tcl_Obj *newValuePtr, int flags);
 #  endif
+#  undef CONST
+#  undef INLINE
 #endif
 
 #ifdef _WIN32
@@ -117,11 +119,12 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #    define PATH_MAX MAX_PATH
 #    define isatty _isatty
 #    define fileno _fileno
-#  else
-//   mingw includes `wingdi.h` which defines a TRANSPARENT macro
-//   that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
-#    undef TRANSPARENT
 #  endif
+
+// The following defines conflict with our identifiers:
+#  undef CONST
+// `wingdi.h` defines a TRANSPARENT macro that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
+#  undef TRANSPARENT
 #endif
 
 #ifndef PATH_MAX
@@ -136,23 +139,20 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #define YOSYS_NAMESPACE_PREFIX   Yosys::
 #define USING_YOSYS_NAMESPACE    using namespace Yosys;
 
-#if __cplusplus >= 201103L
-#  define YS_OVERRIDE override
-#  define YS_FINAL final
-#else
-#  define YS_OVERRIDE
-#  define YS_FINAL
-#endif
-
 #if defined(__GNUC__) || defined(__clang__)
 #  define YS_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
-#  define YS_NORETURN
 #elif defined(_MSC_VER)
 #  define YS_ATTRIBUTE(...)
-#  define YS_NORETURN __declspec(noreturn)
 #else
 #  define YS_ATTRIBUTE(...)
-#  define YS_NORETURN
+#endif
+
+#if __cplusplus >= 201703L
+#  define YS_MAYBE_UNUSED [[maybe_unused]];
+#elif defined(__GNUC__) || defined(__clang__)
+#  define YS_MAYBE_UNUSED __attribute__((__unused__))
+#else
+#  define YS_MAYBE_UNUSED
 #endif
 
 #if __cplusplus >= 201703L
@@ -368,6 +368,9 @@ extern std::map<std::string, void*> loaded_python_plugins;
 #endif
 extern std::map<std::string, std::string> loaded_plugin_aliases;
 void load_plugin(std::string filename, std::vector<std::string> aliases);
+
+extern std::string yosys_share_dirname;
+extern std::string yosys_abc_executable;
 
 YOSYS_NAMESPACE_END
 

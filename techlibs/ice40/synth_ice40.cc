@@ -29,14 +29,14 @@ struct SynthIce40Pass : public ScriptPass
 {
 	SynthIce40Pass() : ScriptPass("synth_ice40", "synthesis for iCE40 FPGAs") { }
 
-	void on_register() YS_OVERRIDE
+	void on_register() override
 	{
 		RTLIL::constpad["synth_ice40.abc9.hx.W"] = "250";
 		RTLIL::constpad["synth_ice40.abc9.lp.W"] = "400";
 		RTLIL::constpad["synth_ice40.abc9.u.W"] = "750";
 	}
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -119,7 +119,7 @@ struct SynthIce40Pass : public ScriptPass
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap;
 	int min_ce_use;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		blif_file = "";
@@ -140,7 +140,7 @@ struct SynthIce40Pass : public ScriptPass
 		device_opt = "hx";
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -262,7 +262,7 @@ struct SynthIce40Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		std::string define;
 		if (device_opt == "lp")
@@ -292,6 +292,8 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
 			run("opt");
 			run("wreduce");
 			run("peepopt");
@@ -316,8 +318,6 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			run("alumacc");
 			run("opt");
-			run("fsm");
-			run("opt -fast");
 			run("memory -nomap");
 			run("opt_clean");
 		}
@@ -354,20 +354,13 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_*");
-			if (min_ce_use >= 0) {
-				run("opt_merge");
-				run(stringf("dff2dffe -unmap-mince %d", min_ce_use));
-				run("simplemap t:$dff");
-			}
-			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "(only if -abc9 and -dff");
+			if (nodffe)
+				run(stringf("dfflegalize -cell $_DFF_?_ 0 -cell $_DFF_?P?_ 0 -cell $_SDFF_?P?_ 0 -cell $_DLATCH_?_ x"));
+			else
+				run(stringf("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_DFF_?P?_ 0 -cell $_DFFE_?P?P_ 0 -cell $_SDFF_?P?_ 0 -cell $_SDFFCE_?P?P_ 0 -cell $_DLATCH_?_ x -mince %d", min_ce_use));
 			run("techmap -map +/ice40/ff_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
-			run("ice40_ffinit");
-			run("ice40_ffssr");
 			run("ice40_opt -full");
 		}
 

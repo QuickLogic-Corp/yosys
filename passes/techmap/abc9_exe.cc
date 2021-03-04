@@ -293,7 +293,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 
 struct Abc9ExePass : public Pass {
 	Abc9ExePass() : Pass("abc9_exe", "use ABC9 for technology mapping") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -375,15 +375,11 @@ struct Abc9ExePass : public Pass {
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC9_EXE pass (technology mapping using ABC9).\n");
 
-#ifdef ABCEXTERNAL
-		std::string exe_file = ABCEXTERNAL;
-#else
-		std::string exe_file = proc_self_dirname() + proc_program_prefix()+ "yosys-abc";
-#endif
+		std::string exe_file = yosys_abc_executable;
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		std::string tempdir_name;
@@ -394,13 +390,6 @@ struct Abc9ExePass : public Pass {
 #if 0
 		cleanup = false;
 		show_tempdir = true;
-#endif
-
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
-#endif
 #endif
 
 		std::string lut_arg, luts_arg;

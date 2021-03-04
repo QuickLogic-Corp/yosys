@@ -38,12 +38,13 @@
 #define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
 #define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_FAST_COMMAND_LUT "strash; dretime; if"
-#define ABC_FAST_COMMAND_SOP "strash; dretime; cover -I {I} -P {P}"
+#define ABC_FAST_COMMAND_SOP "strash; dretime; cover {I} {P}"
 #define ABC_FAST_COMMAND_DFL "strash; dretime; map"
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/ffinit.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
 #include <stdlib.h>
@@ -53,6 +54,7 @@
 #include <cerrno>
 #include <sstream>
 #include <climits>
+#include <vector>
 
 #ifndef _WIN32
 #  include <unistd.h>
@@ -111,7 +113,7 @@ SigMap assign_map;
 RTLIL::Module *module;
 std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
-std::map<RTLIL::SigBit, RTLIL::State> signal_init;
+FfInitVals initvals;
 pool<std::string> enabled_gates;
 bool recover_init, cmos_cost;
 
@@ -133,10 +135,7 @@ int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1,
 		gate.in4 = -1;
 		gate.is_port = false;
 		gate.bit = bit;
-		if (signal_init.count(bit))
-			gate.init = signal_init.at(bit);
-		else
-			gate.init = State::Sx;
+		gate.init = initvals(bit);
 		signal_list.push_back(gate);
 		signal_map[bit] = gate.id;
 	}
@@ -656,7 +655,7 @@ struct abc_output_filter
 };
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
+		std::vector<std::string> &liberty_files, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress)
 {
@@ -711,8 +710,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	std::string abc_script = stringf("read_blif %s/input.blif; ", tempdir_name.c_str());
 
-	if (!liberty_file.empty()) {
-		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
+	if (!liberty_files.empty()) {
+		for (std::string liberty_file : liberty_files) abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
 		if (!constr_file.empty())
 			abc_script += stringf("read_constr -v %s; ", constr_file.c_str());
 	} else
@@ -740,7 +739,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !fast_mode)
 			abc_script += "; lutpack {S}";
-	} else if (!liberty_file.empty())
+	} else if (!liberty_files.empty())
 		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (sop_mode)
 		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
@@ -1021,7 +1020,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
-		bool builtin_lib = liberty_file.empty();
+		bool builtin_lib = liberty_files.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, sop_mode);
 
@@ -1276,7 +1275,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 struct AbcPass : public Pass {
 	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1460,7 +1459,7 @@ struct AbcPass : public Pass {
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC pass (technology mapping using ABC).\n");
 		log_push();
@@ -1468,16 +1467,13 @@ struct AbcPass : public Pass {
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
-		signal_init.clear();
+		initvals.clear();
 		pi_map.clear();
 		po_map.clear();
 
-#ifdef ABCEXTERNAL
-		std::string exe_file = ABCEXTERNAL;
-#else
-		std::string exe_file = proc_self_dirname() + proc_program_prefix() + "yosys-abc";
-#endif
-		std::string script_file, liberty_file, constr_file, clk_str;
+		std::string exe_file = yosys_abc_executable;
+		std::string script_file, default_liberty_file, constr_file, clk_str;
+		std::vector<std::string> liberty_files;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
@@ -1491,18 +1487,11 @@ struct AbcPass : public Pass {
 		enabled_gates.clear();
 		cmos_cost = false;
 
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix()+ "yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
-#endif
-#endif
-
 		// get arguments from scratchpad first, then override by command arguments
 		std::string lut_arg, luts_arg, g_arg;
 		exe_file = design->scratchpad_get_string("abc.exe", exe_file /* inherit default value if not set */);
 		script_file = design->scratchpad_get_string("abc.script", script_file);
-		liberty_file = design->scratchpad_get_string("abc.liberty", liberty_file);
+		default_liberty_file = design->scratchpad_get_string("abc.liberty", default_liberty_file);
 		constr_file = design->scratchpad_get_string("abc.constr", constr_file);
 		if (design->scratchpad.count("abc.D")) {
 			delay_target = "-D " + design->scratchpad_get_string("abc.D");
@@ -1564,7 +1553,7 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-liberty" && argidx+1 < args.size()) {
-				liberty_file = args[++argidx];
+				liberty_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (arg == "-constr" && argidx+1 < args.size()) {
@@ -1656,12 +1645,16 @@ struct AbcPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (liberty_files.empty() && !default_liberty_file.empty()) liberty_files.push_back(default_liberty_file);
+
 		rewrite_filename(script_file);
 		if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
 			script_file = std::string(pwd) + "/" + script_file;
-		rewrite_filename(liberty_file);
-		if (!liberty_file.empty() && !is_absolute_path(liberty_file))
-			liberty_file = std::string(pwd) + "/" + liberty_file;
+		for (int i = 0; i < GetSize(liberty_files); i++) {
+			rewrite_filename(liberty_files[i]);
+			if (!liberty_files[i].empty() && !is_absolute_path(liberty_files[i]))
+				liberty_files[i] = std::string(pwd) + "/" + liberty_files[i];
+		}
 		rewrite_filename(constr_file);
 		if (!constr_file.empty() && !is_absolute_path(constr_file))
 			constr_file = std::string(pwd) + "/" + constr_file;
@@ -1807,6 +1800,7 @@ struct AbcPass : public Pass {
 					gate_list.push_back("OAI4");
 					gate_list.push_back("MUX");
 					gate_list.push_back("NMUX");
+					goto ok_alias;
 				}
 				if (g_arg_from_cmd)
 					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g.c_str()));
@@ -1824,9 +1818,9 @@ struct AbcPass : public Pass {
 			}
 		}
 
-		if (!lut_costs.empty() && !liberty_file.empty())
+		if (!lut_costs.empty() && !liberty_files.empty())
 			log_cmd_error("Got -lut and -liberty! These two options are exclusive.\n");
-		if (!constr_file.empty() && liberty_file.empty())
+		if (!constr_file.empty() && liberty_files.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
 
 		if (enabled_gates.empty()) {
@@ -1854,27 +1848,10 @@ struct AbcPass : public Pass {
 			}
 
 			assign_map.set(mod);
-			signal_init.clear();
-
-			for (Wire *wire : mod->wires())
-				if (wire->attributes.count(ID::init)) {
-					SigSpec initsig = assign_map(wire);
-					Const initval = wire->attributes.at(ID::init);
-					for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-						switch (initval[i]) {
-							case State::S0:
-								signal_init[initsig[i]] = State::S0;
-								break;
-							case State::S1:
-								signal_init[initsig[i]] = State::S1;
-								break;
-							default:
-								break;
-						}
-				}
+			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress);
 				continue;
 			}
@@ -2019,7 +1996,7 @@ struct AbcPass : public Pass {
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress);
 				assign_map.set(mod);
 			}
@@ -2028,7 +2005,7 @@ struct AbcPass : public Pass {
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
-		signal_init.clear();
+		initvals.clear();
 		pi_map.clear();
 		po_map.clear();
 
