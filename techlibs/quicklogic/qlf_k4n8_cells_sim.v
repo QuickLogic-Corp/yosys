@@ -107,13 +107,13 @@ module dffs(
     input D,
     (* clkbuf_sink *)
     input C,
-    input R
+    input S
 );
     parameter [0:0] INIT = 1'b0;
     initial Q = INIT;
 
-    always @(posedge C or negedge R)
-        if (!R)
+    always @(posedge C or negedge S)
+        if (!S)
             Q <= 1'b1;
         else 
             Q <= D;
